@@ -11,12 +11,29 @@
 #ifndef FIELD_H_
 #define FIELD_H_
 
+typedef struct t_unit  t_unit;
+
+typedef struct t_field t_field;
+
+typedef struct t_move  t_move;
+
+//Represents a possible move for a unit.
+struct t_move {
+  int sl; // Start line
+  int sc; // Start Column
+  int el; // End Line
+  int ec; // End Column
+  t_move *next; // Chain list
+  t_unit *eat; // If it can eat a unit, points to it, else == NULL
+};
+
 // Represents a unit of the field.
 struct t_unit {
   char type;   // Type of unit
   int team;    // White (0) or Black (1)
   int status;  // 0 if KO'd, 1 otherwise
   int moved;   // 0 if this unit has never moved
+  t_move *moves; // Possible moves for this unit.
 };
 /*
 # ABOUT t_unit->type --------------------------#
