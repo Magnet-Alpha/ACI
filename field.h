@@ -17,6 +17,16 @@ typedef struct t_field t_field;
 
 typedef struct t_move  t_move;
 
+typedef struct stat *state; //graphs
+
+struct stat
+{
+  int		cost;
+  t_move    *mov;
+    state   side;
+  state		next;
+};
+
 //Represents a possible move for a unit.
 struct t_move {
   int sl; // Start line
