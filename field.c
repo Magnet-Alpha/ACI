@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "field.h"
 
 #define color(param) printf("\033[%sm",param)
@@ -113,7 +114,6 @@ t_move *checkcase(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o)
 }
 
 void give_moves(t_field *f, t_unit *u, int i, int j) {
-  t_move *m;
   switch(u->type) {
   case 't': u->moves = checkline(f, u, i, j, j-1, -1, NULL);
     u->moves = checkline(f, u, i, j, j+1, 1, u->moves);
@@ -244,6 +244,71 @@ int display(struct t_field *f) {
 	return 0;
 }
 
+match_cost(char c) {
+    switch (c) {
+        case 'd': return 10;
+        case 'f': return 3;
+        case 'c': return 2;
+        case 't': return 5;
+        default: return 1;
+    }
+}
+
+state make_state(t_move *t) {
+    state s = malloc(sizeof(struct stat));
+    s->mov = t;
+    if (t!=NULL || t->eat == NULL)
+        s->cost = 0;
+    else
+        s->cost = match_cost(t->eat->type);
+    s->side = NULL;
+    s->next = NULL;
+}
+
+void execmove(t_field *f, t_unit *u, t_move *m) {
+  if (m->eat != NULL) {
+    m->eat->status = 0;
+  }
+  f->mat[m->el][m->ec] = u;
+  f->mat[m->sl][m->sc] = NULL;
+}
+
+void calculating(t_field *f) {
+    state actual = make_state(NULL);
+    actual->next = make_state(NULL);
+    n = actual->next;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            if (f->mat[i][j] != NULL && f->mat[i][j]->team == f->team_playing) {
+                t_move m = f->mat[i][j]->moves;
+                while (m != NULL) {
+                    n->side = make_state(m);
+                    n = n->side;
+                    m = m->next;
+                }
+            }
+        }
+    }
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    n = actual->next->side;
+    while (n != NULL) {
+        if (n->cost > k) {
+            k = n->cost;
+            j = i;
+        }
+        i++;
+        n = n->side;
+    }
+    n = actual->next->side;
+    while (j != 0) {
+        n = n->side;
+        j--;
+    }
+    execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
+}
+
 t_unit *take(t_field *f, char *s) {
   if (s[0] < 'a' || s[0] > 'h')
     return NULL;
@@ -260,14 +325,6 @@ t_move *checkmove(t_field *f, t_unit *u, int i, int j) {
     m = m->next;
   }
   return m;
-}
-
-void execmove(t_field *f, t_unit *u, t_move *m) {
-  if (m->eat != NULL) {
-    m->eat->status = 0;
-  }
-  f->mat[m->el][m->ec] = u;
-  f->mat[m->sl][m->sc] = NULL;
 }
 
 int moving(t_field *f, char *s) {
@@ -302,6 +359,23 @@ int main() {
 	struct t_field *f = new_field();
 	display(f);
 	int a;
+    //char *d = malloc(sizeof(char)*2);
+    //char *e = malloc(sizeof(char)*2);
+    //char *c = malloc(sizeof(char)*1024);
+    /*while(1) {
+        while(fgets(c, 1024, stdin) == 0) {
+            if (getc(stdin) == 0)
+                return 0;
+        }
+        if (sscanf(c, "MOVE %s %s", d, e))
+            if(moving(f, c)) {
+                f->team_playing = (f->team_playing + 1) % 2;
+                calculating(f);
+                f->team_playing = (f->team_playing + 1) % 2;
+            }
+        else
+            printf("Please enter a move with : MOVE start end");
+    }*/
 	scanf("%d", &a);
-	return a;
+	hreturn a;
 }
