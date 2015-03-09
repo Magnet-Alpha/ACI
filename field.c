@@ -1,14 +1,15 @@
 /*
-################################################
-# field.c                                      #
-#----------------------------------------------#
-# Source code                                  #
-################################################
+  ################################################
+  # field.c                                      #
+  #----------------------------------------------#
+  # Source code                                  #
+  ################################################
 */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include "field.h"
 
 #define color(param) printf("\033[%sm",param)
@@ -35,7 +36,7 @@ t_move *checkline(t_field *f, t_unit *u, int i, int j, int m, int g,t_move *o) {
   }
   if (f->mat[i][m]->team != u->team){
     t_move *mo = makemove(i, j, i, m, f->mat[i][m]);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   else
@@ -53,7 +54,7 @@ t_move *checkcolumn(t_field *f, t_unit *u, int i, int j, int m, int g,t_move *o)
   }
   if (f->mat[m][j]->team != u->team){
     t_move *mo = makemove(i, j, m, j, f->mat[m][j]);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   else
@@ -71,7 +72,7 @@ t_move *checkdia(t_field *f,t_unit *u,int i,int j,
   }
   if (f->mat[i+a][j+b]->team != u->team){
     t_move *mo = makemove(i, j, i+a, j+b, f->mat[i+a][j+b]);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   else
@@ -83,12 +84,12 @@ t_move *checkcav(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o) {
     return o;
   if (f->mat[i+a][j+b] == NULL) {
     t_move *mo = makemove(i, j, i+a, j+b, NULL);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   if (f->mat[i+a][j+b]->team != u->team){
     t_move *mo = makemove(i, j, i+a, j+b, f->mat[i+a][j+b]);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   else
@@ -119,6 +120,7 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkline(f, u, i, j, j+1, 1, u->moves);
     u->moves = checkcolumn(f, u, i, j, i-1, -1, u->moves);
     u->moves = checkcolumn(f, u, i, j, i+1, 1, u->moves);
+    return;
   case 'c': u->moves = checkcav(f, u, i, j, 1, 2, NULL);
     u->moves = checkcav(f, u, i, j, 2, 1, u->moves);
     u->moves = checkcav(f, u, i, j, -1, 2, u->moves);
@@ -127,10 +129,12 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkcav(f, u, i, j, 2, -1, u->moves);
     u->moves = checkcav(f, u, i, j, -1, -2, u->moves);
     u->moves = checkcav(f, u, i, j, -2, -1, u->moves);
+    return;
   case 'f': u->moves = checkdia(f, u, i, j, -1, -1, -1, -1, NULL);
     u->moves = checkdia(f, u, i, j, -1, 1, -1, 1 , u->moves);
     u->moves = checkdia(f, u, i, j, 1, -1, 1, -1, u->moves);
     u->moves = checkdia(f, u, i, j, 1, 1, 1, 1, u->moves);
+    return;
   case 'd': u->moves = checkline(f, u, i, j, j-1, -1, NULL);
     u->moves = checkline(f, u, i, j, j+1, 1, u->moves);
     u->moves = checkcolumn(f, u, i, j, i-1, -1, u->moves);
@@ -139,6 +143,7 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkdia(f, u, i, j, -1, 1, -1, 1 , u->moves);
     u->moves = checkdia(f, u, i, j, 1, -1, 1, -1, u->moves);
     u->moves = checkdia(f, u, i, j, 1, 1, 1, 1, u->moves);
+    return;
   case 'r': u->moves = checkcav(f, u, i, j, i+1, j, NULL);
     u->moves = checkcav(f, u, i, j, i+1, j+1, u->moves);
     u->moves = checkcav(f, u, i, j, i+1, j-1, u->moves);
@@ -147,11 +152,13 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkcav(f, u, i, j, i-1, j+1, u->moves);
     u->moves = checkcav(f, u, i, j, i-1, j, u->moves);
     u->moves = checkcav(f, u, i, j, i-1, j-1, u->moves);
-  default: if(!out(i+1,j)) {
-      u->moves = makemove(i, j, i+1, j, NULL);
+    return;
+  default: if(!out(i-(u->team *2 -1),j)) {
+      u->moves = makemove(i, j, i-(u->team *2 -1), j, NULL);
       u->moves->next = NULL;
     }
     else {u->moves = NULL;};
+    return;
   }
 }
 
@@ -166,103 +173,106 @@ void update_moves(t_field *f) {
 
 // Generates a new unit and returns a pointer to it.
 struct t_unit *new_unit(char c, int team) {
-	struct t_unit *u = malloc(sizeof(struct t_unit));
-	u->type = c;            // What kind of unit is this?
-	u->team = team;         // Who owns this unit?
-	u->status = 1;          // This unit is alive! (...for now.)
-	u->moved = 0;           // This unit has never moved
-	return u;
+  struct t_unit *u = malloc(sizeof(struct t_unit));
+  u->type = c;            // What kind of unit is this?
+  u->team = team;         // Who owns this unit?
+  u->status = 1;          // This unit is alive! (...for now.)
+  u->moved = 0;           // This unit has never moved
+  return u;
 }
 
 // Generates a new field to begin the game with.
 struct t_field *new_field() {
-	struct t_field *f = malloc(sizeof(struct t_field));
-	f->turn = 0;
-	f->team_playing = 0;                     // White team plays first
+  struct t_field *f = malloc(sizeof(struct t_field));
+  f->turn = 0;
+  f->team_playing = 0;                     // White team plays first
 
-	for (int i = 0; i < 8; ++i) {            // Placing pawns and specifying empty squares
-		f->mat[1][i]= new_unit('p', 0);
-		f->mat[2][i] = NULL;
-		f->mat[3][i] = NULL;
-		f->mat[4][i] = NULL;
-		f->mat[5][i] = NULL;
-		f->mat[6][i] = new_unit('p', 1);
-	}
-	f->mat[0][0] = new_unit('t', 0);         // Placing main units
-	f->mat[0][1] = new_unit('c', 0);
-	f->mat[0][2] = new_unit('f', 0);
-	f->mat[0][3] = new_unit('d', 0);
-	f->mat[0][4] = new_unit('r', 0);
-	f->mat[0][5] = new_unit('f', 0);
-	f->mat[0][6] = new_unit('c', 0);
-	f->mat[0][7] = new_unit('t', 0);
-	f->mat[7][0] = new_unit('t', 1);
-	f->mat[7][1] = new_unit('c', 1);
-	f->mat[7][2] = new_unit('f', 1);
-	f->mat[7][3] = new_unit('d', 1);
-	f->mat[7][4] = new_unit('r', 1);
-	f->mat[7][5] = new_unit('f', 1);
-	f->mat[7][6] = new_unit('c', 1);
-	f->mat[7][7] = new_unit('t', 1);
-	return f;
+  for (int i = 0; i < 8; ++i) {            // Placing pawns and specifying empty squares
+    f->mat[1][i]= new_unit('p', 0);
+    f->mat[2][i] = NULL;
+    f->mat[3][i] = NULL;
+    f->mat[4][i] = NULL;
+    f->mat[5][i] = NULL;
+    f->mat[6][i] = new_unit('p', 1);
+  }
+  f->mat[0][0] = new_unit('t', 0);         // Placing main units
+  f->mat[0][1] = new_unit('c', 0);
+  f->mat[0][2] = new_unit('f', 0);
+  f->mat[0][3] = new_unit('d', 0);
+  f->mat[0][4] = new_unit('r', 0);
+  f->mat[0][5] = new_unit('f', 0);
+  f->mat[0][6] = new_unit('c', 0);
+  f->mat[0][7] = new_unit('t', 0);
+  f->mat[7][0] = new_unit('t', 1);
+  f->mat[7][1] = new_unit('c', 1);
+  f->mat[7][2] = new_unit('f', 1);
+  f->mat[7][3] = new_unit('d', 1);
+  f->mat[7][4] = new_unit('r', 1);
+  f->mat[7][5] = new_unit('f', 1);
+  f->mat[7][6] = new_unit('c', 1);
+  f->mat[7][7] = new_unit('t', 1);
+  return f;
 }
 // Moves a unit from [sX, sY] to [dX, dY], if possible.
 struct t_field* move(struct t_field *f, int sx, int sy, int dx, int dy) {
-	if (f->mat[sx][sy] == NULL)
-		return f;
-	if (f->mat[dx][dy] != NULL)
-		free(f->mat[dx][dy]);
-	f->mat[dx][dy] = f->mat[sx][sy];
-	f->mat[sx][sy] = NULL;
-	return f;
+  if (f->mat[sx][sy] == NULL)
+    return f;
+  if (f->mat[dx][dy] != NULL)
+    free(f->mat[dx][dy]);
+  f->mat[dx][dy] = f->mat[sx][sy];
+  f->mat[sx][sy] = NULL;
+  return f;
 }
 
 
 // Displays the field (console mode)
 int display(struct t_field *f) {
-	printf("#+ABCDEFGH#\n");
-	printf("#+--------|\n");
-	char s[13];
-	for (int i = 7; i >= 0; --i) {
-		s[0] = 48+i+1;
-		s[1] = '|';
-		for (int j = 2; j <= 9; j++) {
-			if (f->mat[i][j-2] == NULL)
-				s[j] = ' ';
-			else {
-				f->mat[i][j-2]->team ? color("36") : color("31");
-				s[j] = f->mat[i][j-2]->type - 32;
-				color("37");
-			}
-		}
-		s[10] = '#';
-		s[11] = '\n';
-		s[12] = '\0';
-		printf("%s", s);
-	}
-	printf("#+--------|\n");
-	return 0;
+  printf("#+ABCDEFGH#\n");
+  printf("#+--------|\n");
+  char s[13];
+  for (int i = 7; i >= 0; --i) {
+    s[0] = 48+i+1;
+    s[1] = '|';
+    for (int j = 2; j <= 9; j++) {
+      if (f->mat[i][j-2] == NULL)
+	s[j] = ' ';
+      else {
+	f->mat[i][j-2]->team ? color("36") : color("31");
+	s[j] = f->mat[i][j-2]->type - 32;
+	color("37");
+      }
+    }
+    s[10] = '#';
+    s[11] = '\n';
+    s[12] = '\0';
+    printf("%s", s);
+  }
+  printf("#+--------|\n");
+  return 0;
 }
 
-match_cost(char c) {
-    switch (c) {
-        case 'd': return 10;
-        case 'f': return 3;
-        case 'c': return 2;
-        case 't': return 5;
-        default: return 1;
-    }
+int match_cost(char c) {
+  switch (c) {
+  case 'd': return 10;
+  case 'f': return 3;
+  case 'c': return 2;
+  case 't': return 5;
+  default: return 1;
+  }
 }
 
 state make_state(t_move *t) {
-    state s = malloc(sizeof(struct stat));
-    s->mov = t;
-    if (t!=NULL || t->eat == NULL)
-        s->cost = 0;
+  state s = malloc(sizeof(struct stat));
+  s->mov = t;
+  if (t!=NULL) { 
+    if (t->eat == NULL)
+      s->cost = 0;
     else
-        s->cost = match_cost(t->eat->type);
-    s->side = NULL;
-    s->next = NULL;
+      s->cost = match_cost(t->eat->type);
+}
+  s->side = NULL;
+  s->next = NULL;
+  return s;
 }
 
 void execmove(t_field *f, t_unit *u, t_move *m) {
@@ -274,39 +284,41 @@ void execmove(t_field *f, t_unit *u, t_move *m) {
 }
 
 void calculating(t_field *f) {
-    state actual = make_state(NULL);
-    actual->next = make_state(NULL);
-    n = actual->next;
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            if (f->mat[i][j] != NULL && f->mat[i][j]->team == f->team_playing) {
-                t_move m = f->mat[i][j]->moves;
-                while (m != NULL) {
-                    n->side = make_state(m);
-                    n = n->side;
-                    m = m->next;
-                }
-            }
-        }
+  state actual = make_state(NULL);
+  actual->next = make_state(NULL);
+  state n = actual->next;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (f->mat[i][j] != NULL && f->mat[i][j]->team == f->team_playing) {
+	t_move *m = f->mat[i][j]->moves;
+	while (m != NULL) {
+	  n->side = make_state(m);
+	  n = n->side;
+	  m = m->next;
+	}
+      }
     }
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    n = actual->next->side;
-    while (n != NULL) {
-        if (n->cost > k) {
-            k = n->cost;
-            j = i;
-        }
-        i++;
-        n = n->side;
+  }
+  int i = 0;
+  int j = 0;
+  int k = 0;
+  n = actual->next->side;
+  while (n != NULL) {
+    if (n->cost > k) {
+      k = n->cost;
+      j = i;
     }
-    n = actual->next->side;
-    while (j != 0) {
-        n = n->side;
-        j--;
-    }
-    execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
+    i++;
+    n = n->side;
+  }
+  n = actual->next->side;
+  while (j != 0) {
+    n = n->side;
+    j--;
+  }
+  printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
+	 n->mov->ec+'a', n->mov->el+'1');
+  execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
 }
 
 t_unit *take(t_field *f, char *s) {
@@ -330,25 +342,26 @@ t_move *checkmove(t_field *f, t_unit *u, int i, int j) {
 int moving(t_field *f, char *s) {
   char *start = malloc(sizeof(char)*2);
   char *end = malloc(sizeof(char)*2);
-  sscanf("MOVE %s %s", start, end);
+  sscanf(s, "MOVE %s %s", start, end);
   t_unit *u = take(f, start);
   if(u == NULL || u->team != f->team_playing){
-    printf("Move not valid");
+    printf("Move not valid\n");
     return 0;
   }
-  if (s[0] < 'a' || s[0] > 'h') {
-    printf("Move not valid");
+  if (end[0] < 'a' || end[0] > 'h') {
+    printf("Move not valid\n");
     return 0;
   }
-  int col = s[0] - 'a';
-  if (s[1] < '1' || s[1] > '8') {
-    printf("Move not valid");
+  int col = end[0] - 'a';
+  if (end[1] < '1' || end[1] > '8') {
+    printf("lol\n");
+    printf("Move not valid\n");
     return 0;
   }
   int lin = end[1] - '1';
   t_move *m = checkmove(f, u, lin, col);
   if (m == NULL){
-    printf("Move not valid");
+    printf("Move not valid\n");
     return 0;
   }
   execmove(f, u, m);
@@ -356,26 +369,32 @@ int moving(t_field *f, char *s) {
 }
 
 int main() {
-	struct t_field *f = new_field();
+  struct t_field *f = new_field();
+  display(f);
+  update_moves(f);
+  char *d = malloc(sizeof(char)*2);
+  char *e = malloc(sizeof(char)*2);
+  char *c = malloc(sizeof(char)*1024);
+  while(1) {
+    while(fgets(c, 1024, stdin) == 0) {
+    if (getc(stdin) == 0)
+    return 0;
+    }
+    if (sscanf(c, "MOVE %s %s", d, e)) {
+      if(moving(f, c)) {
 	display(f);
-	int a;
-    //char *d = malloc(sizeof(char)*2);
-    //char *e = malloc(sizeof(char)*2);
-    //char *c = malloc(sizeof(char)*1024);
-    /*while(1) {
-        while(fgets(c, 1024, stdin) == 0) {
-            if (getc(stdin) == 0)
-                return 0;
-        }
-        if (sscanf(c, "MOVE %s %s", d, e))
-            if(moving(f, c)) {
-                f->team_playing = (f->team_playing + 1) % 2;
-                calculating(f);
-                f->team_playing = (f->team_playing + 1) % 2;
-            }
-        else
-            printf("Please enter a move with : MOVE start end");
-    }*/
-	scanf("%d", &a);
-	hreturn a;
+	update_moves(f);
+	f->team_playing = (f->team_playing + 1) % 2;
+	calculating(f);
+	f->team_playing = (f->team_playing + 1) % 2;
+	display(f);
+	update_moves(f);
+      }
+    }
+    else if (!strncmp(c, "STOP", 4))
+      return 0;
+    else
+      printf("Please enter a move with : MOVE start end\n");
+    }
+  return 0;
 }

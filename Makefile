@@ -16,5 +16,6 @@ graph: ${GOBJ}
  
 clean:
 	rm -f *~ *.o
+	rm -f field
  
 # END
