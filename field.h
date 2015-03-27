@@ -33,7 +33,7 @@ struct t_move {
   int sc; // Start Column
   int el; // End Line
   int ec; // End Column
-  t_move *next; // Chain list
+  t_move *next; // Chained list (== NULL if last)
   t_unit *eat; // If it can eat a unit, points to it, else == NULL
 };
 

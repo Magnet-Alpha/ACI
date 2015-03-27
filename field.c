@@ -14,6 +14,7 @@
 
 #define color(param) printf("\033[%sm",param)
 
+// Prevents out-of-range
 int out(int i, int j) {return (i < 0 || i > 7 || j < 0 || j > 7);}
 
 t_move *makemove(int sl, int sc, int el, int ec, t_unit *u) {
@@ -26,6 +27,7 @@ t_move *makemove(int sl, int sc, int el, int ec, t_unit *u) {
   return m;
 }
 
+// Get accessible cells in the given line
 t_move *checkline(t_field *f, t_unit *u, int i, int j, int m, int g,t_move *o) {
   if (out(i, m))
     return o;
@@ -43,6 +45,7 @@ t_move *checkline(t_field *f, t_unit *u, int i, int j, int m, int g,t_move *o) {
     return o;
 }
 
+// Get accessible cells in the given column
 t_move *checkcolumn(t_field *f, t_unit *u, int i, int j, int m, int g,t_move *o)
 {
   if (out(m, j))
@@ -61,6 +64,7 @@ t_move *checkcolumn(t_field *f, t_unit *u, int i, int j, int m, int g,t_move *o)
     return o;
 }
 
+// Get accessible cells in the diagonals from a unit's position
 t_move *checkdia(t_field *f,t_unit *u,int i,int j,
 		 int a,int b,int c,int d,t_move *o) {
   if (out(i+a, j+b))
@@ -79,6 +83,7 @@ t_move *checkdia(t_field *f,t_unit *u,int i,int j,
     return o;
 }
 
+// Get accessible cells from a knight's position
 t_move *checkcav(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o) {
   if (out(i + a, j + b))
     return o;
@@ -95,6 +100,7 @@ t_move *checkcav(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o) {
   else
     return o;
 }
+
 
 t_move *checkcase(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o)
 {
@@ -162,6 +168,46 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
   }
 }
 
+// Is a king in check?
+int is_in_check(t_field *f, int team) {
+  // Looking for the king
+  int x = 0;
+  int y = 0;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (f->mat[i][j] != NULL && f->mat[i][j]->type == 'r' && f->mat[i][j]->team == team) {
+        x = i;
+        y = j;
+      }
+    }
+  }
+  // Looking for enemy units that can attack the king
+  struct t_move *m = NULL;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (f->mat[i][j] != NULL) {
+        if (f->mat[i][j]->team != team) {
+          m = f->mat[i][j]->moves;
+          while (m != NULL) {
+            if (m->eat == f->mat[x][y])
+              return 1;       // Check!
+            m = m->next;
+          }
+        }
+      }
+    }
+  }
+  return 0;                   // Not in check.
+}
+
+void display_check(t_field *f, int team) {
+  char* col = team == 0 ? "White" : "Black";
+  if (is_in_check(f, team))
+    printf("%s king in check!\n", col);
+  return;
+}
+
+// Update valid moves
 void update_moves(t_field *f) {
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
@@ -169,6 +215,8 @@ void update_moves(t_field *f) {
         give_moves(f, f->mat[i][j], i, j);
     }
   }
+  display_check(f,0);
+  display_check(f,1);
 }
 
 // Generates a new unit and returns a pointer to it.
@@ -237,9 +285,9 @@ int display(struct t_field *f) {
       if (f->mat[i][j-2] == NULL)
 	s[j] = ' ';
       else {
-	f->mat[i][j-2]->team ? color("36") : color("31");
+	//f->mat[i][j-2]->team ? color("36") : color("31");
 	s[j] = f->mat[i][j-2]->type - 32;
-	color("37");
+	//color("37");
       }
     }
     s[10] = '#';
@@ -251,6 +299,7 @@ int display(struct t_field *f) {
   return 0;
 }
 
+// IA: Values of unit types
 int match_cost(char c) {
   switch (c) {
   case 'd': return 10;
@@ -264,7 +313,7 @@ int match_cost(char c) {
 state make_state(t_move *t) {
   state s = malloc(sizeof(struct stat));
   s->mov = t;
-  if (t!=NULL) { 
+  if (t!=NULL) {
     if (t->eat == NULL)
       s->cost = 0;
     else
@@ -382,13 +431,13 @@ int main() {
     }
     if (sscanf(c, "MOVE %s %s", d, e)) {
       if(moving(f, c)) {
-	display(f);
-	update_moves(f);
-	f->team_playing = (f->team_playing + 1) % 2;
-	calculating(f);
-	f->team_playing = (f->team_playing + 1) % 2;
-	display(f);
-	update_moves(f);
+        display(f);
+        update_moves(f);
+        f->team_playing = (f->team_playing + 1) % 2;
+        calculating(f);
+        f->team_playing = (f->team_playing + 1) % 2;
+        display(f);
+        update_moves(f);
       }
     }
     else if (!strncmp(c, "STOP", 4))
