@@ -317,15 +317,31 @@ state make_state(t_move *t, int c, int v) {
       s->cost = 0;
     else
       s->cost += match_cost(t->eat->type) * v;
-}
+  }
   s->side = NULL;
   s->next = NULL;
   return s;
 }
 
+void freemoves(t_move *all, t_move *not) {
+  while(all != NULL && all != not) {
+    t_move *p = all;
+    all = all->next;
+    free(p);
+  }
+  if(all != NULL)
+    all = all->next;
+  while(all != NULL) {
+    t_move *p = all;
+    all = all->next;
+    free(p);
+  }
+}
+
 void execmove(t_field *f, t_unit *u, t_move *m) {
   if (m->eat != NULL) {
     m->eat->status = 0;
+    freemoves(m->eat->moves, NULL);
     free(m->eat);
   }
   f->mat[m->el][m->ec] = u;
@@ -333,25 +349,58 @@ void execmove(t_field *f, t_unit *u, t_move *m) {
 }
 
 t_field *cam(t_field *f, t_move *m) {
-    t_field *co = calloc(sizeof(struct t_field), 1);
-    co->turn = f->turn;
-    co->team_playing = f->team_playing;
-    for(int i = 0; i < 8; i++) {
-        for(int j = 0; j < 8; j++) {
-            if(f->mat[i][j] != NULL) {
-                co->mat[i][j] = new_unit(f->mat[i][j]->type, f->mat[i][j]->team);
-            }
-        }
+  t_field *co = calloc(sizeof(struct t_field), 1);
+  co->turn = f->turn;
+  co->team_playing = f->team_playing;
+  for(int i = 0; i < 8; i++) {
+    for(int j = 0; j < 8; j++) {
+      if(f->mat[i][j] != NULL) {
+	co->mat[i][j] = new_unit(f->mat[i][j]->type, f->mat[i][j]->team);
+      }
     }
-    if (m!=NULL)
-        execmove(co, co->mat[m->sl][m->sc], m);
-    update_moves(co);
-    return co;
+  }
+  if (m!=NULL)
+    execmove(co, co->mat[m->sl][m->sc], m);
+  update_moves(co);
+  return co;
+}
+
+void freestates(state s, state not){
+  while(s != NULL && s != not) {
+    state p = s;
+    s = s->side;
+    free(p);
+  }
+  if(s != NULL) {
+    if(s->next != NULL) {
+      free(s->next->mov);
+      free(s->next);
+    }
+    s = s->side;
+  }
+  while(s != NULL) {
+    state p = s;
+    s = s->side;
+    free(p);
+  }
+}
+
+void freefield(t_field *f, t_move *m) {
+  for(int i = 0; i < 8; i++) {
+    for(int j = 0; j < 8; j++) {
+      if(f->mat[i][j] != NULL) {
+	freemoves(f->mat[i][j]->moves, m);
+	free(f->mat[i][j]);
+      }
+    }
+  }
+  free(f);
 }
 
 void calculating(t_field *f, state actual, int t) {
-    if (t < 0)
-        return;
+  if (t < 0)
+    return;
+  state fre = actual->next;
   state n = actual->next;
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
@@ -388,18 +437,22 @@ void calculating(t_field *f, state actual, int t) {
     actual->cost = -10000;
   else
     actual->cost = n->cost;
-    actual->next = n;
-    free(f);
+  actual->next = n;
+  freefield(f, n->mov);
+  freestates(fre, n);
 }
 
 void IAplay(t_field *f, int t) {
-    state actual = make_state(NULL, 0, 1);
-    actual->next = make_state(NULL, 0, 1);
-    calculating(cam(f, NULL), actual, t*2);
-    state n = actual->next;
-    printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
+  state actual = make_state(NULL, 0, 1);
+  actual->next = make_state(NULL, 0, 1);
+  calculating(cam(f, NULL), actual, t*2);
+  state n = actual->next;
+  printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
 	 n->mov->ec+'a', n->mov->el+'1');
-    execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
+  execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
+  free(n->mov);
+  free(n);
+  free(actual);
 }
 
 t_unit *take(t_field *f, char *s) {
@@ -458,8 +511,8 @@ int main() {
   char *c = malloc(sizeof(char)*1024);
   while(1) {
     while(fgets(c, 1024, stdin) == 0) {
-    if (getc(stdin) == 0)
-    return 0;
+      if (getc(stdin) == 0)
+	return 0;
     }
     if (sscanf(c, "MOVE %s %s", d, e)) {
       if(moving(f, c)) {
@@ -480,6 +533,6 @@ int main() {
       return 0;
     else
       printf("Please enter a move with : MOVE start end\n");
-    }
+  }
   return 0;
 }
