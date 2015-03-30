@@ -150,14 +150,14 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkdia(f, u, i, j, 1, -1, 1, -1, u->moves);
     u->moves = checkdia(f, u, i, j, 1, 1, 1, 1, u->moves);
     return;
-  case 'r': u->moves = checkcav(f, u, i, j, i+1, j, NULL);
-    u->moves = checkcav(f, u, i, j, i+1, j+1, u->moves);
-    u->moves = checkcav(f, u, i, j, i+1, j-1, u->moves);
-    u->moves = checkcav(f, u, i, j, i, j+1, u->moves);
-    u->moves = checkcav(f, u, i, j, i, j-1, u->moves);
-    u->moves = checkcav(f, u, i, j, i-1, j+1, u->moves);
-    u->moves = checkcav(f, u, i, j, i-1, j, u->moves);
-    u->moves = checkcav(f, u, i, j, i-1, j-1, u->moves);
+  case 'r': u->moves = checkcase(f, u, i, j, i+1, j, NULL);
+    u->moves = checkcase(f, u, i, j, i+1, j+1, u->moves);
+    u->moves = checkcase(f, u, i, j, i+1, j-1, u->moves);
+    u->moves = checkcase(f, u, i, j, i, j+1, u->moves);
+    u->moves = checkcase(f, u, i, j, i, j-1, u->moves);
+    u->moves = checkcase(f, u, i, j, i-1, j+1, u->moves);
+    u->moves = checkcase(f, u, i, j, i-1, j, u->moves);
+    u->moves = checkcase(f, u, i, j, i-1, j-1, u->moves);
     return;
   default: if(!out(i-(u->team *2 -1),j)) {
       u->moves = makemove(i, j, i-(u->team *2 -1), j, NULL);
@@ -215,8 +215,6 @@ void update_moves(t_field *f) {
         give_moves(f, f->mat[i][j], i, j);
     }
   }
-  display_check(f,0);
-  display_check(f,1);
 }
 
 // Generates a new unit and returns a pointer to it.
@@ -310,14 +308,15 @@ int match_cost(char c) {
   }
 }
 
-state make_state(t_move *t) {
+state make_state(t_move *t, int c, int v) {
   state s = malloc(sizeof(struct stat));
   s->mov = t;
+  s->cost = c;
   if (t!=NULL) {
     if (t->eat == NULL)
       s->cost = 0;
     else
-      s->cost = match_cost(t->eat->type);
+      s->cost += match_cost(t->eat->type) * v;
 }
   s->side = NULL;
   s->next = NULL;
@@ -327,21 +326,41 @@ state make_state(t_move *t) {
 void execmove(t_field *f, t_unit *u, t_move *m) {
   if (m->eat != NULL) {
     m->eat->status = 0;
+    free(m->eat);
   }
   f->mat[m->el][m->ec] = u;
   f->mat[m->sl][m->sc] = NULL;
 }
 
-void calculating(t_field *f) {
-  state actual = make_state(NULL);
-  actual->next = make_state(NULL);
+t_field *cam(t_field *f, t_move *m) {
+    t_field *co = calloc(sizeof(struct t_field), 1);
+    co->turn = f->turn;
+    co->team_playing = f->team_playing;
+    for(int i = 0; i < 8; i++) {
+        for(int j = 0; j < 8; j++) {
+            if(f->mat[i][j] != NULL) {
+                co->mat[i][j] = new_unit(f->mat[i][j]->type, f->mat[i][j]->team);
+            }
+        }
+    }
+    if (m!=NULL)
+        execmove(co, co->mat[m->sl][m->sc], m);
+    update_moves(co);
+    return co;
+}
+
+void calculating(t_field *f, state actual, int t) {
+    if (t < 0)
+        return;
   state n = actual->next;
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
-      if (f->mat[i][j] != NULL && f->mat[i][j]->team == f->team_playing) {
+      if (f->mat[i][j] != NULL && f->mat[i][j]->team == ((f->team_playing+(t%2))%2)) {
 	t_move *m = f->mat[i][j]->moves;
 	while (m != NULL) {
-	  n->side = make_state(m);
+	  n->side = make_state(m, actual->cost, (((t%2)*2)-1)*(-1));
+	  n->side->next = make_state(NULL, 0, 1);
+	  calculating(cam(f, n->side->mov), n->side, t-1);
 	  n = n->side;
 	  m = m->next;
 	}
@@ -350,10 +369,10 @@ void calculating(t_field *f) {
   }
   int i = 0;
   int j = 0;
-  int k = 0;
+  int k = actual->cost;
   n = actual->next->side;
   while (n != NULL) {
-    if (n->cost > k) {
+    if ((t %2 == 0 && n->cost > k) || (t%2 != 0 && n->cost < k)) {
       k = n->cost;
       j = i;
     }
@@ -365,9 +384,22 @@ void calculating(t_field *f) {
     n = n->side;
     j--;
   }
-  printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
+  if(n == NULL)
+    actual->cost = -10000;
+  else
+    actual->cost = n->cost;
+    actual->next = n;
+    free(f);
+}
+
+void IAplay(t_field *f, int t) {
+    state actual = make_state(NULL, 0, 1);
+    actual->next = make_state(NULL, 0, 1);
+    calculating(cam(f, NULL), actual, t*2);
+    state n = actual->next;
+    printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
 	 n->mov->ec+'a', n->mov->el+'1');
-  execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
+    execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
 }
 
 t_unit *take(t_field *f, char *s) {
@@ -433,11 +465,15 @@ int main() {
       if(moving(f, c)) {
         display(f);
         update_moves(f);
+        display_check(f,0);
+        display_check(f,1);
         f->team_playing = (f->team_playing + 1) % 2;
-        calculating(f);
+        IAplay(f, 1);
         f->team_playing = (f->team_playing + 1) % 2;
         display(f);
         update_moves(f);
+        display_check(f,0);
+        display_check(f,1);
       }
     }
     else if (!strncmp(c, "STOP", 4))
