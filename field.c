@@ -17,6 +17,8 @@
 // Prevents out-of-range
 int out(int i, int j) {return (i < 0 || i > 7 || j < 0 || j > 7);}
 
+void freemoves(t_move *head, t_move *not);
+
 t_move *makemove(int sl, int sc, int el, int ec, t_unit *u) {
   t_move *m = malloc(sizeof(struct t_move));
   m->sl = sl;
@@ -211,15 +213,17 @@ void display_check(t_field *f, int team) {
 void update_moves(t_field *f) {
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
-      if (f->mat[i][j] != NULL)
+      if (f->mat[i][j] != NULL) {
+        freemoves(f->mat[i][j]->moves, NULL);
         give_moves(f, f->mat[i][j], i, j);
+      }
     }
   }
 }
 
 // Generates a new unit and returns a pointer to it.
 struct t_unit *new_unit(char c, int team) {
-  struct t_unit *u = malloc(sizeof(struct t_unit));
+  struct t_unit *u = calloc(sizeof(struct t_unit), 1);
   u->type = c;            // What kind of unit is this?
   u->team = team;         // Who owns this unit?
   u->status = 1;          // This unit is alive! (...for now.)
@@ -300,6 +304,7 @@ int display(struct t_field *f) {
 // IA: Values of unit types
 int match_cost(char c) {
   switch (c) {
+  case 'r': return 100000;
   case 'd': return 10;
   case 'f': return 3;
   case 'c': return 2;
@@ -323,7 +328,8 @@ state make_state(t_move *t, int c, int v) {
   return s;
 }
 
-void freemoves(t_move *all, t_move *not) {
+void freemoves(t_move *head, t_move *not) {
+  t_move *all = head;
   while(all != NULL && all != not) {
     t_move *p = all;
     all = all->next;
@@ -336,6 +342,7 @@ void freemoves(t_move *all, t_move *not) {
     all = all->next;
     free(p);
   }
+  head = NULL;
 }
 
 void execmove(t_field *f, t_unit *u, t_move *m) {
@@ -365,7 +372,8 @@ t_field *cam(t_field *f, t_move *m) {
   return co;
 }
 
-void freestates(state s, state not){
+void freestates(state head, state not){
+  state s = head;
   while(s != NULL && s != not) {
     state p = s;
     s = s->side;
@@ -383,6 +391,7 @@ void freestates(state s, state not){
     s = s->side;
     free(p);
   }
+  head = NULL;
 }
 
 void freefield(t_field *f, t_move *m) {
@@ -393,7 +402,9 @@ void freefield(t_field *f, t_move *m) {
 	free(f->mat[i][j]);
       }
     }
+    //free(f->mat[i]);
   }
+  //free(f->mat);
   free(f);
 }
 
@@ -443,6 +454,7 @@ void calculating(t_field *f, state actual, int t) {
 }
 
 void IAplay(t_field *f, int t) {
+    printf("CPU playing...\n");
   state actual = make_state(NULL, 0, 1);
   actual->next = make_state(NULL, 0, 1);
   calculating(cam(f, NULL), actual, t*2);
@@ -494,6 +506,8 @@ int moving(t_field *f, char *s) {
   }
   int lin = end[1] - '1';
   t_move *m = checkmove(f, u, lin, col);
+  free(start);
+  free(end);
   if (m == NULL){
     printf("Move not valid\n");
     return 0;
@@ -502,13 +516,100 @@ int moving(t_field *f, char *s) {
   return 1;
 }
 
-int main() {
+t_unit *match_char(char c) {
+    switch(c) {
+        case 't':return new_unit('t', 0);
+            break;
+        case 'c':return new_unit('c', 0);
+            break;
+        case 'f':return new_unit('f', 0);
+            break;
+        case 'd':return new_unit('d', 0);
+            break;
+        case 'r':return new_unit('r', 0);
+            break;
+        case 'p':return new_unit('p', 0);
+            break;
+        case 'T':return new_unit('t', 1);
+            break;
+        case 'C':return new_unit('c', 1);
+            break;
+        case 'F':return new_unit('f', 1);
+            break;
+        case 'D':return new_unit('d', 1);
+            break;
+        case 'R':return new_unit('r', 1);
+            break;
+        case 'P':return new_unit('p', 1);
+            break;
+        default:return NULL;
+            break;
+    }
+}
+
+int main2(char *s) {
+    FILE *file = fopen(s, "r");
+    t_field *f = calloc(sizeof(struct t_field), 1);
+    f->team_playing = 0;
+    f->turn = 0;
+    //f->mat = calloc(sizeof(t_unit), 64);
+    char *buf = calloc(sizeof(char), 10);
+    for(int i = 7; i >=0; i--) {
+        fgets(buf, 10, file);
+        for(int j = 0; j < 8; j++) {
+            f->mat[i][j] = match_char(buf[j]);
+        }
+    }
+    display(f);
+    read(STDIN_FILENO, buf, 5);
+    return 0;
+}
+
+int main(int argc, char*argv[]) {
+    if (argc > 1)
+        if(strncmp(argv[1], "-p", 2))
+            return main2(argv[2]);
   struct t_field *f = new_field();
   display(f);
   update_moves(f);
+  int multi = 0;
+  int difficulty = 1;
   char *d = malloc(sizeof(char)*2);
   char *e = malloc(sizeof(char)*2);
   char *c = malloc(sizeof(char)*1024);
+  printf("Want to play online ? Y/N\n");
+  do {
+  read(STDIN_FILENO, c, 10);
+  if(c[0] != 'Y' && c[0]!= 'N')
+    printf("You stupid\n");
+  } while(c[0] != 'Y' && c[0]!= 'N');
+  if(c[0] == 'Y') {
+    multi = 1;
+    //FIXME, Multi-stuff preparation.
+  }
+  else {
+    printf("Which difficulty ? 1 easy - 2 medium - 3 NOTIMPLEMENTED\n");
+    do {
+    read(STDIN_FILENO, c, 10);
+    if(c[0] != '1' && c[0]!= '2')
+        printf("You stupid\n");
+    } while(c[0] != '1' && c[0]!= '2');
+    difficulty = (int)c[0]-(int)'0';
+  }
+  printf("Which team ? W for White, B for Black\n"); //Faire attention au multi
+  do {
+  read(STDIN_FILENO, c, 10);
+  if(c[0] != 'B' && c[0]!= 'W')
+    printf("You stupid\n");
+  } while(c[0] != 'B' && c[0]!= 'W');
+  if(c[0] == 'B' && !multi) {
+    IAplay(f, difficulty);
+    f->team_playing = (f->team_playing + 1) % 2;
+    display(f);
+    update_moves(f);
+    display_check(f,0);
+    display_check(f,1);
+  }
   while(1) {
     while(fgets(c, 1024, stdin) == 0) {
       if (getc(stdin) == 0)
@@ -521,12 +622,17 @@ int main() {
         display_check(f,0);
         display_check(f,1);
         f->team_playing = (f->team_playing + 1) % 2;
-        IAplay(f, 1);
-        f->team_playing = (f->team_playing + 1) % 2;
-        display(f);
-        update_moves(f);
-        display_check(f,0);
-        display_check(f,1);
+        if (multi) {
+            //FIXME, Multi-stuff
+        }
+        else {
+            IAplay(f, difficulty);
+            f->team_playing = (f->team_playing + 1) % 2;
+            display(f);
+            update_moves(f);
+            display_check(f,0);
+            display_check(f,1);
+        }
       }
     }
     else if (!strncmp(c, "STOP", 4))
