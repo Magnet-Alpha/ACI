@@ -103,7 +103,7 @@ t_move *checkcav(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o) {
     return o;
 }
 
-
+// Check if a specific cell is accessible
 t_move *checkcase(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o)
 {
   if (out(a, b))
@@ -122,14 +122,45 @@ t_move *checkcase(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o)
     return o;
 }
 
+// Check if a specific case is occupied by an enemy (useful for the Pawn)
+t_move *checkcaseenemy(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o)
+{
+  if (out(a, b))
+    return o;
+  if (f->mat[a][b] != NULL && f->mat[a][b]->team != u->team){
+    t_move *mo = makemove(i, j, a, b, f->mat[a][b]);
+    mo->next = NULL;
+    return mo;
+  }
+  else
+    return o;
+}
+
+// Check if a specific case is empty (useful for the Pawn)
+t_move *checkcaseempty(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o)
+{
+  if (out(a, b))
+    return o;
+  if (f->mat[a][b] == NULL && u->type){
+    t_move *mo = makemove(i, j, a, b, f->mat[a][b]);
+    mo->next = NULL;
+    return mo;
+  }
+  // Note : testing u->type silences the "unused parameter" warning
+  else
+    return o;
+}
+
 void give_moves(t_field *f, t_unit *u, int i, int j) {
   switch(u->type) {
-  case 't': u->moves = checkline(f, u, i, j, j-1, -1, NULL);
+  case 't':
+    u->moves = checkline(f, u, i, j, j-1, -1, NULL);
     u->moves = checkline(f, u, i, j, j+1, 1, u->moves);
     u->moves = checkcolumn(f, u, i, j, i-1, -1, u->moves);
     u->moves = checkcolumn(f, u, i, j, i+1, 1, u->moves);
     return;
-  case 'c': u->moves = checkcav(f, u, i, j, 1, 2, NULL);
+  case 'c':
+    u->moves = checkcav(f, u, i, j, 1, 2, NULL);
     u->moves = checkcav(f, u, i, j, 2, 1, u->moves);
     u->moves = checkcav(f, u, i, j, -1, 2, u->moves);
     u->moves = checkcav(f, u, i, j, -2, 1, u->moves);
@@ -138,12 +169,14 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkcav(f, u, i, j, -1, -2, u->moves);
     u->moves = checkcav(f, u, i, j, -2, -1, u->moves);
     return;
-  case 'f': u->moves = checkdia(f, u, i, j, -1, -1, -1, -1, NULL);
+  case 'f':
+    u->moves = checkdia(f, u, i, j, -1, -1, -1, -1, NULL);
     u->moves = checkdia(f, u, i, j, -1, 1, -1, 1 , u->moves);
     u->moves = checkdia(f, u, i, j, 1, -1, 1, -1, u->moves);
     u->moves = checkdia(f, u, i, j, 1, 1, 1, 1, u->moves);
     return;
-  case 'd': u->moves = checkline(f, u, i, j, j-1, -1, NULL);
+  case 'd':
+    u->moves = checkline(f, u, i, j, j-1, -1, NULL);
     u->moves = checkline(f, u, i, j, j+1, 1, u->moves);
     u->moves = checkcolumn(f, u, i, j, i-1, -1, u->moves);
     u->moves = checkcolumn(f, u, i, j, i+1, 1, u->moves);
@@ -152,7 +185,8 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkdia(f, u, i, j, 1, -1, 1, -1, u->moves);
     u->moves = checkdia(f, u, i, j, 1, 1, 1, 1, u->moves);
     return;
-  case 'r': u->moves = checkcase(f, u, i, j, i+1, j, NULL);
+  case 'r':
+    u->moves = checkcase(f, u, i, j, i+1, j, NULL);
     u->moves = checkcase(f, u, i, j, i+1, j+1, u->moves);
     u->moves = checkcase(f, u, i, j, i+1, j-1, u->moves);
     u->moves = checkcase(f, u, i, j, i, j+1, u->moves);
@@ -161,11 +195,17 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkcase(f, u, i, j, i-1, j, u->moves);
     u->moves = checkcase(f, u, i, j, i-1, j-1, u->moves);
     return;
-  default: if(!out(i-(u->team *2 -1),j)) {
-      u->moves = makemove(i, j, i-(u->team *2 -1), j, NULL);
-      u->moves->next = NULL;
+  case 'p':
+    if (out(i-(u->team *2 -1),j))
+    {
+      u->moves = NULL;
+      return;
     }
-    else {u->moves = NULL;};
+    u->moves = checkcaseempty(f, u, i, j, i-(u->team *2 -1), j, NULL);
+    u->moves = checkcaseenemy(f, u, i, j, i-(u->team *2 -1), j+1, u->moves);
+    u->moves = checkcaseenemy(f, u, i, j, i-(u->team *2 -1), j-1, u->moves);
+    //if (u->moved == 0)  // Sp. move : 2 squares ahead from the starting pos. (BUGGY)
+    //  u->moves = checkcaseempty(f, u, i, j, i-(2*(u->team *2 -1)), j, u->moves);
     return;
   }
 }
@@ -351,6 +391,7 @@ void execmove(t_field *f, t_unit *u, t_move *m) {
     freemoves(m->eat->moves, NULL);
     free(m->eat);
   }
+  u->moved = 1;
   f->mat[m->el][m->ec] = u;
   f->mat[m->sl][m->sc] = NULL;
 }
@@ -477,7 +518,10 @@ t_unit *take(t_field *f, char *s) {
   return f->mat[lin][col];
 }
 
+// Check if moving the unit u to [i,j] is permitted
 t_move *checkmove(t_field *f, t_unit *u, int i, int j) {
+  if (!f)     // Note : this test silences the "unused parameter" warning
+    return NULL;
   t_move *m = u->moves;
   while (m != NULL && (m->el != i || m->ec != j)) {
     m = m->next;
