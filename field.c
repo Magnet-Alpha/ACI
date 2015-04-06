@@ -129,7 +129,7 @@ t_move *checkcaseenemy(t_field *f, t_unit *u, int i, int j, int a, int b, t_move
     return o;
   if (f->mat[a][b] != NULL && f->mat[a][b]->team != u->team){
     t_move *mo = makemove(i, j, a, b, f->mat[a][b]);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   else
@@ -143,7 +143,7 @@ t_move *checkcaseempty(t_field *f, t_unit *u, int i, int j, int a, int b, t_move
     return o;
   if (f->mat[a][b] == NULL && u->type){
     t_move *mo = makemove(i, j, a, b, f->mat[a][b]);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   // Note : testing u->type silences the "unused parameter" warning
@@ -196,16 +196,14 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
     u->moves = checkcase(f, u, i, j, i-1, j-1, u->moves);
     return;
   case 'p':
+    u->moves = NULL;
     if (out(i-(u->team *2 -1),j))
-    {
-      u->moves = NULL;
       return;
-    }
-    u->moves = checkcaseempty(f, u, i, j, i-(u->team *2 -1), j, NULL);
+    if (u->moved == 0)  // Sp. move : 2 squares ahead from the starting pos.
+      u->moves = checkcaseempty(f, u, i, j, i-(2*(u->team *2 -1)), j, u->moves);
+    u->moves = checkcaseempty(f, u, i, j, i-(u->team *2 -1), j, u->moves);
     u->moves = checkcaseenemy(f, u, i, j, i-(u->team *2 -1), j+1, u->moves);
     u->moves = checkcaseenemy(f, u, i, j, i-(u->team *2 -1), j-1, u->moves);
-    //if (u->moved == 0)  // Sp. move : 2 squares ahead from the starting pos. (BUGGY)
-    //  u->moves = checkcaseempty(f, u, i, j, i-(2*(u->team *2 -1)), j, u->moves);
     return;
   }
 }
@@ -391,7 +389,7 @@ void execmove(t_field *f, t_unit *u, t_move *m) {
     freemoves(m->eat->moves, NULL);
     free(m->eat);
   }
-  u->moved = 1;
+  u->moved += 1;
   f->mat[m->el][m->ec] = u;
   f->mat[m->sl][m->sc] = NULL;
 }
