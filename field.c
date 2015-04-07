@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <SDL/SDL.h>
 #include "field.h"
 
 #define color(param) printf("\033[%sm",param)
@@ -314,7 +315,7 @@ struct t_field* move(struct t_field *f, int sx, int sy, int dx, int dy) {
 
 
 // Displays the field (console mode)
-int display(struct t_field *f) {
+int display(struct t_field *f, SDL_Surface *ecran) {
   printf("#+ABCDEFGH#\n");
   printf("#+--------|\n");
   char s[13];
@@ -336,6 +337,52 @@ int display(struct t_field *f) {
     printf("%s", s);
   }
   printf("#+--------|\n");
+
+  SDL_FillRect(ecran, NULL, SDL_MapRGB(ecran->format, 0, 0, 0));
+  SDL_Surface *squares = calloc(sizeof(SDL_Surface), 32);
+  for(int i = 0; i < 4; i++) {
+    for(int j = 0; j < 8; j++) {
+      squares[i*8+j] = *SDL_CreateRGBSurface(SDL_HWSURFACE,60,60,32,0,0,0,0);
+      SDL_FillRect(squares+(i*8+j), NULL,SDL_MapRGB(ecran->format,255,255,255));
+      SDL_Rect position;
+
+      position.x = (i*2 + j%2)*60;
+      position.y = j*60;
+
+      SDL_BlitSurface(squares+(i*8+j), NULL, ecran, &position);
+    }
+  }
+  
+  int k = 0;
+  char *buf = calloc(sizeof(char), 6);
+  buf[2] = '.';
+  buf[3] = 'b';
+  buf[4] = 'm';
+  buf[5] = 'p';
+
+  SDL_Surface *pieces = calloc(sizeof(SDL_Surface), 32);
+  for(int i = 0; i < 8; i++) {
+    for(int j = 0; j < 8; j++) {
+      if (f->mat[i][j] != NULL) {
+	buf[0] = f->mat[i][j]->type;
+	if(f->mat[i][j]->team)
+	  buf[1] = 'b';
+	else
+	  buf[1] = 'w';
+	pieces[k] = *SDL_LoadBMP(buf);
+	SDL_Rect position;
+
+	position.x = j*60;
+	position.y = (7-i)*60;
+
+	SDL_SetColorKey(pieces+k,SDL_SRCCOLORKEY,SDL_MapRGB(pieces[k].format,255,0,0));
+	SDL_BlitSurface(pieces+k, NULL, ecran, &position);
+	k++;
+      }
+    }
+  }
+  SDL_Flip(ecran);
+
   return 0;
 }
 
@@ -454,7 +501,7 @@ void calculating(t_field *f, state actual, int t) {
   state n = actual->next;
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
-      if (f->mat[i][j] != NULL && f->mat[i][j]->team == ((f->team_playing+(t%2))%2)) {
+      if (f->mat[i][j]!=NULL&&f->mat[i][j]->team==((f->team_playing+(t%2))%2)) {
 	t_move *m = f->mat[i][j]->moves;
 	while (m != NULL) {
 	  n->side = make_state(m, actual->cost, (((t%2)*2)-1)*(-1));
@@ -493,7 +540,7 @@ void calculating(t_field *f, state actual, int t) {
 }
 
 void IAplay(t_field *f, int t) {
-    printf("CPU playing...\n");
+  printf("CPU playing...\n");
   state actual = make_state(NULL, 0, 1);
   actual->next = make_state(NULL, 0, 1);
   calculating(cam(f, NULL), actual, t*2);
@@ -559,60 +606,63 @@ int moving(t_field *f, char *s) {
 }
 
 t_unit *match_char(char c) {
-    switch(c) {
-        case 't':return new_unit('t', 0);
-            break;
-        case 'c':return new_unit('c', 0);
-            break;
-        case 'f':return new_unit('f', 0);
-            break;
-        case 'd':return new_unit('d', 0);
-            break;
-        case 'r':return new_unit('r', 0);
-            break;
-        case 'p':return new_unit('p', 0);
-            break;
-        case 'T':return new_unit('t', 1);
-            break;
-        case 'C':return new_unit('c', 1);
-            break;
-        case 'F':return new_unit('f', 1);
-            break;
-        case 'D':return new_unit('d', 1);
-            break;
-        case 'R':return new_unit('r', 1);
-            break;
-        case 'P':return new_unit('p', 1);
-            break;
-        default:return NULL;
-            break;
-    }
+  switch(c) {
+  case 't':return new_unit('t', 0);
+    break;
+  case 'c':return new_unit('c', 0);
+    break;
+  case 'f':return new_unit('f', 0);
+    break;
+  case 'd':return new_unit('d', 0);
+    break;
+  case 'r':return new_unit('r', 0);
+    break;
+  case 'p':return new_unit('p', 0);
+    break;
+  case 'T':return new_unit('t', 1);
+    break;
+  case 'C':return new_unit('c', 1);
+    break;
+  case 'F':return new_unit('f', 1);
+    break;
+  case 'D':return new_unit('d', 1);
+    break;
+  case 'R':return new_unit('r', 1);
+    break;
+  case 'P':return new_unit('p', 1);
+    break;
+  default:return NULL;
+    break;
+  }
 }
 
 int main2(char *s) {
-    FILE *file = fopen(s, "r");
-    t_field *f = calloc(sizeof(struct t_field), 1);
-    f->team_playing = 0;
-    f->turn = 0;
-    //f->mat = calloc(sizeof(t_unit), 64);
-    char *buf = calloc(sizeof(char), 10);
-    for(int i = 7; i >=0; i--) {
-        fgets(buf, 10, file);
-        for(int j = 0; j < 8; j++) {
-            f->mat[i][j] = match_char(buf[j]);
-        }
+  FILE *file = fopen(s, "r");
+  t_field *f = calloc(sizeof(struct t_field), 1);
+  f->team_playing = 0;
+  f->turn = 0;
+  //f->mat = calloc(sizeof(t_unit), 64);
+  char *buf = calloc(sizeof(char), 10);
+  for(int i = 7; i >=0; i--) {
+    fgets(buf, 10, file);
+    for(int j = 0; j < 8; j++) {
+      f->mat[i][j] = match_char(buf[j]);
     }
-    display(f);
-    read(STDIN_FILENO, buf, 5);
-    return 0;
+  }
+  //display(f);
+  read(STDIN_FILENO, buf, 5);
+  return 0;
 }
 
 int main(int argc, char*argv[]) {
-    if (argc > 1)
-        if(strncmp(argv[1], "-p", 2))
-            return main2(argv[2]);
+  if (argc > 1)
+    if(strncmp(argv[1], "-p", 2))
+      return main2(argv[2]);
   struct t_field *f = new_field();
-  display(f);
+  SDL_Init(SDL_INIT_VIDEO);
+  SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
+  SDL_WM_SetCaption("ACI", NULL);
+  display(f, ecran);
   update_moves(f);
   int multi = 0;
   int difficulty = 1;
@@ -621,9 +671,9 @@ int main(int argc, char*argv[]) {
   char *c = malloc(sizeof(char)*1024);
   printf("Want to play online ? Y/N\n");
   do {
-  read(STDIN_FILENO, c, 10);
-  if(c[0] != 'Y' && c[0]!= 'N')
-    printf("You stupid\n");
+    read(STDIN_FILENO, c, 10);
+    if(c[0] != 'Y' && c[0]!= 'N')
+      printf("You stupid\n");
   } while(c[0] != 'Y' && c[0]!= 'N');
   if(c[0] == 'Y') {
     multi = 1;
@@ -632,22 +682,22 @@ int main(int argc, char*argv[]) {
   else {
     printf("Which difficulty ? 1 easy - 2 medium - 3 NOTIMPLEMENTED\n");
     do {
-    read(STDIN_FILENO, c, 10);
-    if(c[0] != '1' && c[0]!= '2')
+      read(STDIN_FILENO, c, 10);
+      if(c[0] != '1' && c[0]!= '2')
         printf("You stupid\n");
     } while(c[0] != '1' && c[0]!= '2');
     difficulty = (int)c[0]-(int)'0';
   }
   printf("Which team ? W for White, B for Black\n"); //Faire attention au multi
   do {
-  read(STDIN_FILENO, c, 10);
-  if(c[0] != 'B' && c[0]!= 'W')
-    printf("You stupid\n");
+    read(STDIN_FILENO, c, 10);
+    if(c[0] != 'B' && c[0]!= 'W')
+      printf("You stupid\n");
   } while(c[0] != 'B' && c[0]!= 'W');
   if(c[0] == 'B' && !multi) {
     IAplay(f, difficulty);
     f->team_playing = (f->team_playing + 1) % 2;
-    display(f);
+    display(f, ecran);
     update_moves(f);
     display_check(f,0);
     display_check(f,1);
@@ -659,26 +709,29 @@ int main(int argc, char*argv[]) {
     }
     if (sscanf(c, "MOVE %s %s", d, e)) {
       if(moving(f, c)) {
-        display(f);
+        display(f, ecran);
         update_moves(f);
         display_check(f,0);
         display_check(f,1);
         f->team_playing = (f->team_playing + 1) % 2;
         if (multi) {
-            //FIXME, Multi-stuff
+	  //FIXME, Multi-stuff
         }
         else {
-            IAplay(f, difficulty);
-            f->team_playing = (f->team_playing + 1) % 2;
-            display(f);
-            update_moves(f);
-            display_check(f,0);
-            display_check(f,1);
+	  IAplay(f, difficulty);
+	  f->team_playing = (f->team_playing + 1) % 2;
+	  display(f, ecran);
+	  update_moves(f);
+	  display_check(f,0);
+	  display_check(f,1);
         }
       }
     }
-    else if (!strncmp(c, "STOP", 4))
+    else if (!strncmp(c, "STOP", 4)) {
+      //freeSDL();
+      //SDL_QUIT();
       return 0;
+    }
     else
       printf("Please enter a move with : MOVE start end\n");
   }

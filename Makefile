@@ -1,10 +1,10 @@
 # Basic Makefile
  
-CPPFLAGS=
+CPPFLAGS= `pkg-config --cflags sdl`
 CC=clang
 CFLAGS=  -std=c99 -O0 -g
 LDFLAGS=
-LDLIBS=
+LDLIBS= `pkg-config --libs sdl` -lSDL_image
 
 GSRC= field.c
 GOBJ= ${GSRC:.c=.o}
