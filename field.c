@@ -436,7 +436,7 @@ void execmove(t_field *f, t_unit *u, t_move *m) {
     freemoves(m->eat->moves, NULL);
     free(m->eat);
   }
-  u->moved += 1;
+  u->moved = 1;
   f->mat[m->el][m->ec] = u;
   f->mat[m->sl][m->sc] = NULL;
 }
@@ -641,6 +641,10 @@ int main2(char *s) {
   t_field *f = calloc(sizeof(struct t_field), 1);
   f->team_playing = 0;
   f->turn = 0;
+  SDL_Init(SDL_INIT_VIDEO);
+  SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
+  SDL_WM_SetCaption("ACI", NULL);
+
   //f->mat = calloc(sizeof(t_unit), 64);
   char *buf = calloc(sizeof(char), 10);
   for(int i = 7; i >=0; i--) {
@@ -649,14 +653,14 @@ int main2(char *s) {
       f->mat[i][j] = match_char(buf[j]);
     }
   }
-  //display(f);
+  display(f,ecran);
   read(STDIN_FILENO, buf, 5);
   return 0;
 }
 
 int main(int argc, char*argv[]) {
   if (argc > 1)
-    if(strncmp(argv[1], "-p", 2))
+    //if(strncmp(argv[1], "-p", 2))
       return main2(argv[2]);
   struct t_field *f = new_field();
   SDL_Init(SDL_INIT_VIDEO);
