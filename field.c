@@ -111,12 +111,12 @@ t_move *checkcase(t_field *f, t_unit *u, int i, int j, int a, int b, t_move *o)
     return o;
   if (f->mat[a][b] == NULL) {
     t_move *mo = makemove(i, j, a, b, NULL);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   if (f->mat[a][b]->team != u->team){
     t_move *mo = makemove(i, j, a, b, f->mat[a][b]);
-    mo->next = NULL;
+    mo->next = o;
     return mo;
   }
   else
@@ -389,7 +389,7 @@ int display(struct t_field *f, SDL_Surface *ecran) {
 // IA: Values of unit types
 int match_cost(char c) {
   switch (c) {
-  case 'r': return 100000;
+  case 'r': return 1000;
   case 'd': return 10;
   case 'f': return 3;
   case 'c': return 2;
@@ -535,8 +535,8 @@ void calculating(t_field *f, state actual, int t) {
   else
     actual->cost = n->cost;
   actual->next = n;
-  freefield(f, n->mov);
-  freestates(fre, n);
+  /*freefield(f, n->mov);
+    freestates(fre, n);*/
 }
 
 void IAplay(t_field *f, int t) {
@@ -548,9 +548,9 @@ void IAplay(t_field *f, int t) {
   printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
 	 n->mov->ec+'a', n->mov->el+'1');
   execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
-  free(n->mov);
+  /*free(n->mov);
   free(n);
-  free(actual);
+  free(actual);*/
 }
 
 t_unit *take(t_field *f, char *s) {
@@ -673,7 +673,7 @@ int main(int argc, char*argv[]) {
   char *d = malloc(sizeof(char)*2);
   char *e = malloc(sizeof(char)*2);
   char *c = malloc(sizeof(char)*1024);
-  printf("Want to play online ? Y/N\n");
+  printf("Want to play multi ? Y/N\n");
   do {
     read(STDIN_FILENO, c, 10);
     if(c[0] != 'Y' && c[0]!= 'N')
@@ -692,7 +692,7 @@ int main(int argc, char*argv[]) {
     } while(c[0] != '1' && c[0]!= '2');
     difficulty = (int)c[0]-(int)'0';
   }
-  printf("Which team ? W for White, B for Black\n"); //Faire attention au multi
+  printf("Which team player 1 ? W for White, B for Black\n"); //Faire attention au multi
   do {
     read(STDIN_FILENO, c, 10);
     if(c[0] != 'B' && c[0]!= 'W')
