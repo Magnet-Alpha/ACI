@@ -352,7 +352,7 @@ int display(struct t_field *f, SDL_Surface *ecran) {
       SDL_BlitSurface(squares+(i*8+j), NULL, ecran, &position);
     }
   }
-  
+
   int k = 0;
   char *buf = calloc(sizeof(char), 6);
   buf[2] = '.';
@@ -636,7 +636,24 @@ t_unit *match_char(char c) {
   }
 }
 
-int main2(char *s) {
+int save(t_field *f, char *s) {
+    FILE *file = fopen(s, "w+");
+    for (int i = 7; i >= 0; i--) {
+        char *buf = calloc(sizeof(char), 8);
+        for (int j = 0; j < 8; j++) {
+            if (f->mat[i][j] != NULL)
+                buf[j] = f->mat[i][j]->type + 32 * (char)f->mat[i][j]->team;
+            else
+                buf[j] = '#';
+        }
+        fprintf(file, "%s/n", buf);
+    }
+    fprintf(file, "TURN %d", f->turn);
+    fclose(f);
+    return 1;
+}
+
+int load(char *s) {
   FILE *file = fopen(s, "r");
   t_field *f = calloc(sizeof(struct t_field), 1);
   f->team_playing = 0;
@@ -661,7 +678,7 @@ int main2(char *s) {
 int main(int argc, char*argv[]) {
   if (argc > 1)
     //if(strncmp(argv[1], "-p", 2))
-      return main2(argv[2]);
+      return load(argv[2]);
   struct t_field *f = new_field();
   SDL_Init(SDL_INIT_VIDEO);
   SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
