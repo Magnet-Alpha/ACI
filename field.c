@@ -784,15 +784,13 @@ int save(t_field *f, char *s) {
     return 1;
 }
 
-int load(char *s) {
+t_field* load(char *s) {
   FILE *file = fopen(s, "r");
+  if (file == NULL)
+    return NULL;
   t_field *f = calloc(sizeof(struct t_field), 1);
   f->team_playing = 0;
   f->turn = 0;
-  SDL_Init(SDL_INIT_VIDEO);
-  SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
-  SDL_WM_SetCaption("ACI", NULL);
-
   //f->mat = calloc(sizeof(t_unit), 64);
   char *buf = calloc(sizeof(char), 10);
   for(int i = 7; i >=0; i--) {
@@ -801,22 +799,14 @@ int load(char *s) {
       f->mat[i][j] = match_char(buf[j]);
     }
   }
-  display(f,ecran, 1);
-  read(STDIN_FILENO, buf, 5);
-  return 0;
+  return f;
 }
 
 /*----------------------------------------------------------------------------*/
 // MAIN PROCESS
 int main(int argc, char*argv[]) {
-  if (argc > 1)
-    //if(strncmp(argv[1], "-p", 2))
-      return load(argv[2]);
-  struct t_field *f = new_field();
-  SDL_Init(SDL_INIT_VIDEO);
-  SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
-  SDL_WM_SetCaption("ACI", NULL);
-  update_moves(f);
+  struct t_field *f;
+  int white = 1;
   int multi = 0;
   int difficulty = 1;
   int cons = 1;
@@ -824,49 +814,83 @@ int main(int argc, char*argv[]) {
   char *e = malloc(sizeof(char)*2);
   char *c = malloc(sizeof(char)*1024);
   char *path = calloc(sizeof(char), 1024);
-  printf("Do you wanna use console ? Y/N\n");
-  do {
-    read(STDIN_FILENO, c, 10);
-    if(c[0] != 'Y' && c[0]!= 'N')
-      printf("You stupid\n");
-  } while(c[0] != 'Y' && c[0]!= 'N');
-  if(c[0] == 'N') {
-    cons = 0;
-  }
-  display(f, ecran, cons);
-  printf("Want to play multi ? Y/N\n");
-  do {
-    read(STDIN_FILENO, c, 10);
-    if(c[0] != 'Y' && c[0]!= 'N')
-      printf("You stupid\n");
-  } while(c[0] != 'Y' && c[0]!= 'N');
-  if(c[0] == 'Y') {
-    multi = 1;
-    //FIXME, Multi-stuff preparation.
+  SDL_Init(SDL_INIT_VIDEO);
+  SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
+  SDL_WM_SetCaption("ACI", NULL);
+
+  if (argc > 1) {
+    char *lvalue = NULL;
+    int l;
+
+    while ((l = getopt (argc, argv, "bml:")) != -1)
+    switch (l)
+      {
+      case 'b':
+        white = 0;
+        break;
+      case 'm':
+        multi = 1;
+        break;
+      case 'l':
+        lvalue = optarg;
+        break;
+      default:
+        abort();
+      }
+    f = load(lvalue);
+    if (f != NULL) {
+      printf("Loading succesful.\n");
+      display(f,ecran, 1);
+    }
   }
   else {
-    printf("Which difficulty ? 1 easy - 2 medium - 3 NOTIMPLEMENTED\n");
-    do {
-      read(STDIN_FILENO, c, 10);
-      if(c[0] != '1' && c[0]!= '2')
-        printf("You stupid\n");
-    } while(c[0] != '1' && c[0]!= '2');
-    difficulty = (int)c[0]-(int)'0';
-  }
-  printf("Which team player 1 ? W for White, B for Black\n"); //Faire attention au multi
-  do {
-    read(STDIN_FILENO, c, 10);
-    if(c[0] != 'B' && c[0]!= 'W')
-      printf("You stupid\n");
-  } while(c[0] != 'B' && c[0]!= 'W');
-  if(c[0] == 'B' && !multi) {
-    IAplay(f, difficulty);
-    f->team_playing = (f->team_playing + 1) % 2;
-    display(f, ecran, cons);
+    f = new_field();
     update_moves(f);
-    display_check(f,0);
-    display_check(f,1);
+    printf("Do you wanna use console ? Y/N\n");
+    do {
+        read(STDIN_FILENO, c, 10);
+        if(c[0] != 'Y' && c[0]!= 'N')
+            printf("You stupid\n");
+    } while(c[0] != 'Y' && c[0]!= 'N');
+    if(c[0] == 'N') {
+        cons = 0;
+    }
+    display(f, ecran, cons);
+    printf("Want to play multi ? Y/N\n");
+    do {
+        read(STDIN_FILENO, c, 10);
+        if(c[0] != 'Y' && c[0]!= 'N')
+            printf("You stupid\n");
+    } while(c[0] != 'Y' && c[0]!= 'N');
+    if(c[0] == 'Y') {
+        multi = 1;
+        //FIXME, Multi-stuff preparation.
+    }
+    else {
+        printf("Which difficulty ? 1 easy - 2 medium - 3 NOTIMPLEMENTED\n");
+        do {
+            read(STDIN_FILENO, c, 10);
+            if(c[0] != '1' && c[0]!= '2')
+                printf("You stupid\n");
+        } while(c[0] != '1' && c[0]!= '2');
+        difficulty = (int)c[0]-(int)'0';
+    }
+    printf("Which team player 1 ? W for White, B for Black\n"); //Faire attention au multi
+    do {
+        read(STDIN_FILENO, c, 10);
+        if(c[0] != 'B' && c[0]!= 'W')
+            printf("You stupid\n");
+    } while(c[0] != 'B' && c[0]!= 'W');
+    if(c[0] == 'B' && !multi) {
+        IAplay(f, difficulty);
+        f->team_playing = (f->team_playing + 1) % 2;
+        display(f, ecran, cons);
+        update_moves(f);
+        display_check(f,0);
+        display_check(f,1);
+    }
   }
+
   while(1) {
     while(fgets(c, 1024, stdin) == 0) {
       if (getc(stdin) == 0)
