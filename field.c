@@ -209,6 +209,48 @@ void give_moves(t_field *f, t_unit *u, int i, int j) {
   }
 }
 
+// Find the X-coord. of u (line)
+int find_x(t_field *f, t_unit *u) {
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (f->mat[i][j] == u)
+        return i;
+    }
+  }
+  return -1;
+}
+
+// Find the Y-coord. of u (column)
+int find_y(t_field *f, t_unit *u) {
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (f->mat[i][j] == u)
+        return j;
+    }
+  }
+  return -1;
+}
+
+// Check if the cell [x,y] may be attacked by the opposite team
+int is_in_danger(t_field *f, int team, int x, int y) {
+  struct t_move *m = NULL;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (f->mat[i][j] != NULL) {
+        if (f->mat[i][j]->team != team) {
+          m = f->mat[i][j]->moves;
+          while (m != NULL) {
+            if (m->eat == f->mat[x][y])
+              return 1;       // Danger!
+            m = m->next;
+          }
+        }
+      }
+    }
+  }
+  return 0;                   // Safe.
+}
+
 // Is a king in check?
 int is_in_check(t_field *f, int team) {
   // Looking for the king
@@ -222,29 +264,128 @@ int is_in_check(t_field *f, int team) {
       }
     }
   }
-  // Looking for enemy units that can attack the king
-  struct t_move *m = NULL;
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-      if (f->mat[i][j] != NULL) {
-        if (f->mat[i][j]->team != team) {
-          m = f->mat[i][j]->moves;
-          while (m != NULL) {
-            if (m->eat == f->mat[x][y])
-              return 1;       // Check!
-            m = m->next;
-          }
-        }
-      }
-    }
-  }
-  return 0;                   // Not in check.
+  // Checking
+  return is_in_danger(f, team, x, y);
 }
 
 void display_check(t_field *f, int team) {
   char* col = team == 0 ? "White" : "Black";
   if (is_in_check(f, team))
     printf("%s king in check!\n", col);
+  return;
+}
+
+
+// Checks if castling (FR: Roque) with these two units is permitted
+// A castling is permitted if :
+// - Neither the Rook nor the King have ever moved since the beginning
+// - The King is not in check
+// - There are no units between the King and the Rook
+// - The King doesn't travel cells in which it could be in check
+int check_castling(t_field *f, t_unit *k, t_unit *r) {
+  int x = find_x(f, k);
+  if (k->moved || r->moved || is_in_check(f, k->team))
+    return 0;
+  if (find_y(f, r) == 0) {
+    if (f->mat[x][1] || f->mat[x][2] || f->mat[x][3] ||
+        is_in_danger(f, k->team, x, 3) ||
+        is_in_danger(f, k->team, x, 2))
+      return 0;
+  }
+  else {
+    if (f->mat[x][6] || f->mat[x][5] ||
+        is_in_danger(f, k->team, x, 6) ||
+        is_in_danger(f, k->team, x, 5))
+      return 0;
+  }
+  return 1;
+}
+
+// Execute the castling
+// type = 0 : King moves -> 2 + Rook moves <- 2 ["Petit roque"]
+// type = 1 : King moves <- 2 + Rook moves -> 3 ["Grand roque"]
+void exec_castling(t_field *f, t_unit *k, t_unit *r, int type) {
+  int kx = find_x(f, k);
+  int ky = find_y(f, k);
+  int rx = find_x(f, r);
+  int ry = find_y(f, r);
+  if (type) {      // "Grand roque"
+    f->mat[kx][ky - 2] = f->mat[kx][ky];
+    f->mat[kx][ky] = NULL;
+    f->mat[rx][ry + 3] = f->mat[rx][ry];
+    f->mat[rx][ry] = NULL;
+  }
+  else {           // "Petit roque"
+    f->mat[kx][ky + 2] = f->mat[kx][ky];
+    f->mat[kx][ky] = NULL;
+    f->mat[rx][ry - 2] = f->mat[rx][ry];
+    f->mat[rx][ry] = NULL;
+  }
+}
+
+// Manages the castling move (returns 1 if success, 0 if not possible)
+int castling(t_field *f, int team, int type) {
+  t_unit *k;
+  t_unit *r;
+  if (team) {
+    k = f->mat[7][4];
+    if (type)
+      r = f->mat[7][0];
+    else
+      r = f->mat[7][7];
+  }
+  else {
+    k = f->mat[0][4];
+    if (type)
+      r = f->mat[0][0];
+    else
+      r = f->mat[0][7];
+  }
+  if (check_castling(f, k, r)) {
+    exec_castling(f, k, r, type);
+    return 1;
+  }
+  else {
+    printf("Can't do castling.\n");
+    return 0;
+  }
+}
+
+// Promotes the pawn u to something else.
+// ai = 0 if a human player owns the pawn
+// ai = 1 if the AI owns the pawn (=> Queen)
+void promote(t_unit *u, int ai) {
+  if (ai) {
+    u->type = 'd';
+  }
+  else {
+    char *c = malloc(sizeof(char)*1024);
+    printf("Which type of unit do you want to promote your pawn to?\n");
+    printf("Q (Queen) / R (Rook) / B (Bishop) / K (Knight)\n");
+    do {
+      read(STDIN_FILENO, c, 10);
+      if (c[0] != 'Q' && c[0]!= 'R' && c[0]!= 'B' && c[0]!= 'K')
+        printf("You stupid\n");
+    } while (c[0] != 'Q' && c[0]!= 'R' && c[0]!= 'B' && c[0]!= 'K');
+    if (c[0] == 'Q') { u->type = 'd'; }
+    if (c[0] == 'R') { u->type = 't'; }
+    if (c[0] == 'B') { u->type = 'f'; }
+    if (c[0] == 'K') { u->type = 'c'; }
+  }
+}
+
+// Is there a pawn to be promoted?
+// Normally, there can be max. 1 pawn in that situation.
+void check_promotion(t_field *f, int ai) {
+  t_unit *u = NULL;
+  for (int i = 0; i <8; i++) {
+    if (f->mat[0][i] && f->mat[0][i]->type == 'p')
+      u = f->mat[0][i];
+    if (f->mat[7][i] && f->mat[7][i]->type == 'p')
+      u = f->mat[7][i];
+  }
+  if (u)
+    promote(u, ai);
   return;
 }
 
@@ -624,6 +765,8 @@ t_unit *match_char(char c) {
   }
 }
 
+/*------------------------------------------------------------------------*/
+
 int save(t_field *f, char *s) {
     FILE *file = fopen(s, "w+");
     for (int i = 7; i >= 0; i--) {
@@ -663,6 +806,8 @@ int load(char *s) {
   return 0;
 }
 
+/*----------------------------------------------------------------------------*/
+// MAIN PROCESS
 int main(int argc, char*argv[]) {
   if (argc > 1)
     //if(strncmp(argv[1], "-p", 2))
@@ -729,6 +874,7 @@ int main(int argc, char*argv[]) {
     }
     if (sscanf(c, "MOVE %s %s", d, e)) {
       if(moving(f, c)) {
+        check_promotion(f, 0);
         display(f, ecran, cons);
         update_moves(f);
         display_check(f,0);
@@ -740,6 +886,7 @@ int main(int argc, char*argv[]) {
         else {
 	  IAplay(f, difficulty);
 	  f->team_playing = (f->team_playing + 1) % 2;
+	  check_promotion(f, 1);
 	  display(f, ecran, cons);
 	  update_moves(f);
 	  display_check(f,0);
