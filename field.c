@@ -18,7 +18,7 @@
 // Prevents out-of-range
 int out(int i, int j) {return (i < 0 || i > 7 || j < 0 || j > 7);}
 
-void freemoves(t_move *head, t_move *not);
+void freemoves(t_move *head);
 
 t_move *makemove(int sl, int sc, int el, int ec, t_unit *u) {
   t_move *m = malloc(sizeof(struct t_move));
@@ -253,7 +253,7 @@ void update_moves(t_field *f) {
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
       if (f->mat[i][j] != NULL) {
-        freemoves(f->mat[i][j]->moves, NULL);
+        freemoves(f->mat[i][j]->moves);
         give_moves(f, f->mat[i][j], i, j);
       }
     }
@@ -413,15 +413,8 @@ state make_state(t_move *t, int c, int v) {
   return s;
 }
 
-void freemoves(t_move *head, t_move *not) {
+void freemoves(t_move *head) {
   t_move *all = head;
-  while(all != NULL && all != not) {
-    t_move *p = all;
-    all = all->next;
-    free(p);
-  }
-  if(all != NULL)
-    all = all->next;
   while(all != NULL) {
     t_move *p = all;
     all = all->next;
@@ -433,7 +426,7 @@ void freemoves(t_move *head, t_move *not) {
 void execmove(t_field *f, t_unit *u, t_move *m) {
   if (m->eat != NULL) {
     m->eat->status = 0;
-    freemoves(m->eat->moves, NULL);
+    freemoves(m->eat->moves);
     free(m->eat);
   }
   u->moved = 1;
@@ -480,12 +473,12 @@ void freestates(state head, state not){
   head = NULL;
 }
 
-void freefield(t_field *f, t_move *m) {
+void freefield(t_field *f) {
   for(int i = 0; i < 8; i++) {
     for(int j = 0; j < 8; j++) {
       if(f->mat[i][j] != NULL) {
-	freemoves(f->mat[i][j]->moves, m);
-	free(f->mat[i][j]);
+        freemoves(f->mat[i][j]->moves);
+        free(f->mat[i][j]);
       }
     }
     //free(f->mat[i]);
@@ -494,7 +487,7 @@ void freefield(t_field *f, t_move *m) {
   free(f);
 }
 
-void calculating(t_field *f, state actual, int t) {
+void calculating(t_field *f, state actual, int t, int a_b, int first) {
   if (t < 0)
     return;
   state fre = actual->next;
@@ -506,44 +499,39 @@ void calculating(t_field *f, state actual, int t) {
 	while (m != NULL) {
 	  n->side = make_state(m, actual->cost, (((t%2)*2)-1)*(-1));
 	  n->side->next = make_state(NULL, 0, 1);
-	  calculating(cam(f, n->side->mov), n->side, t-1);
+	  calculating(cam(f, n->side->mov), n->side, t-1, actual->cost, first);
+	  if (((t%2 == 0) && (n->side->cost > actual->cost)) || ((t%2 != 0) && (n->side->cost < actual->cost))) {
+        actual->next = n->side;
+        actual->cost = n->side->cost;
+	  }
+	  if (((t%2 == 0) && (actual->cost > a_b)) || ((t%2 != 0) && (actual->cost < a_b))) {
+        if (n != actual->next && n != NULL)
+            free(n);
+        if (t != first)
+            freefield(f);
+        return;
+	  }
+      a_b = n->side->cost;
+      state fr = n;
 	  n = n->side;
+	  if (fr != actual->next)
+        free(fr);
 	  m = m->next;
 	}
       }
     }
   }
-  int i = 0;
-  int j = 0;
-  int k = actual->cost;
-  n = actual->next->side;
-  while (n != NULL) {
-    if (((t%2 == 0) && (n->cost > k)) || ((t%2 != 0) && (n->cost < k))) {
-      k = n->cost;
-      j = i;
-    }
-    i++;
-    n = n->side;
-  }
-  n = actual->next->side;
-  while (j != 0) {
-    n = n->side;
-    j--;
-  }
-  if(n == NULL)
-    actual->cost = -10000;
-  else
-    actual->cost = n->cost;
-  actual->next = n;
-  /*freefield(f, n->mov);
-    freestates(fre, n);*/
+  if (n != actual->next && n != NULL)
+    free(n);
+  if (t != first)
+    freefield(f);
 }
 
 void IAplay(t_field *f, int t) {
   printf("CPU playing...\n");
   state actual = make_state(NULL, 0, 1);
   actual->next = make_state(NULL, 0, 1);
-  calculating(cam(f, NULL), actual, t*2);
+  calculating(f, actual, t*2, -1000000, t*2);
   state n = actual->next;
   printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
 	 n->mov->ec+'a', n->mov->el+'1');
@@ -649,7 +637,7 @@ int save(t_field *f, char *s) {
         fprintf(file, "%s/n", buf);
     }
     fprintf(file, "TURN %d", f->turn);
-    fclose(f);
+    fclose(file);
     return 1;
 }
 
