@@ -315,7 +315,8 @@ struct t_field* move(struct t_field *f, int sx, int sy, int dx, int dy) {
 
 
 // Displays the field (console mode)
-int display(struct t_field *f, SDL_Surface *ecran) {
+int display(struct t_field *f, SDL_Surface *ecran, int cons) {
+    if (cons) {
   printf("#+ABCDEFGH#\n");
   printf("#+--------|\n");
   char s[13];
@@ -337,7 +338,8 @@ int display(struct t_field *f, SDL_Surface *ecran) {
     printf("%s", s);
   }
   printf("#+--------|\n");
-
+    }
+    else {
   SDL_FillRect(ecran, NULL, SDL_MapRGB(ecran->format, 0, 0, 0));
   SDL_Surface *squares = calloc(sizeof(SDL_Surface), 32);
   for(int i = 0; i < 4; i++) {
@@ -382,6 +384,7 @@ int display(struct t_field *f, SDL_Surface *ecran) {
     }
   }
   SDL_Flip(ecran);
+    }
 
   return 0;
 }
@@ -402,10 +405,7 @@ state make_state(t_move *t, int c, int v) {
   state s = malloc(sizeof(struct stat));
   s->mov = t;
   s->cost = c;
-  if (t!=NULL) {
-    if (t->eat == NULL)
-      s->cost = 0;
-    else
+  if (t!=NULL && t->eat != NULL) {
       s->cost += match_cost(t->eat->type) * v;
   }
   s->side = NULL;
@@ -518,7 +518,7 @@ void calculating(t_field *f, state actual, int t) {
   int k = actual->cost;
   n = actual->next->side;
   while (n != NULL) {
-    if ((t %2 == 0 && n->cost > k) || (t%2 != 0 && n->cost < k)) {
+    if (((t%2 == 0) && (n->cost > k)) || ((t%2 != 0) && (n->cost < k))) {
       k = n->cost;
       j = i;
     }
@@ -670,7 +670,7 @@ int load(char *s) {
       f->mat[i][j] = match_char(buf[j]);
     }
   }
-  display(f,ecran);
+  display(f,ecran, 1);
   read(STDIN_FILENO, buf, 5);
   return 0;
 }
@@ -683,13 +683,24 @@ int main(int argc, char*argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
   SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
   SDL_WM_SetCaption("ACI", NULL);
-  display(f, ecran);
   update_moves(f);
   int multi = 0;
   int difficulty = 1;
+  int cons = 1;
   char *d = malloc(sizeof(char)*2);
   char *e = malloc(sizeof(char)*2);
   char *c = malloc(sizeof(char)*1024);
+  char *path = calloc(sizeof(char), 1024);
+  printf("Do you wanna use console ? Y/N\n");
+  do {
+    read(STDIN_FILENO, c, 10);
+    if(c[0] != 'Y' && c[0]!= 'N')
+      printf("You stupid\n");
+  } while(c[0] != 'Y' && c[0]!= 'N');
+  if(c[0] == 'N') {
+    cons = 0;
+  }
+  display(f, ecran, cons);
   printf("Want to play multi ? Y/N\n");
   do {
     read(STDIN_FILENO, c, 10);
@@ -718,7 +729,7 @@ int main(int argc, char*argv[]) {
   if(c[0] == 'B' && !multi) {
     IAplay(f, difficulty);
     f->team_playing = (f->team_playing + 1) % 2;
-    display(f, ecran);
+    display(f, ecran, cons);
     update_moves(f);
     display_check(f,0);
     display_check(f,1);
@@ -730,7 +741,7 @@ int main(int argc, char*argv[]) {
     }
     if (sscanf(c, "MOVE %s %s", d, e)) {
       if(moving(f, c)) {
-        display(f, ecran);
+        display(f, ecran, cons);
         update_moves(f);
         display_check(f,0);
         display_check(f,1);
@@ -741,12 +752,16 @@ int main(int argc, char*argv[]) {
         else {
 	  IAplay(f, difficulty);
 	  f->team_playing = (f->team_playing + 1) % 2;
-	  display(f, ecran);
+	  display(f, ecran, cons);
 	  update_moves(f);
 	  display_check(f,0);
 	  display_check(f,1);
         }
       }
+    }
+    else if (sscanf(c, "SAVE %s", path)) {
+      if (save(f, path));
+        printf("Game saved\n");
     }
     else if (!strncmp(c, "STOP", 4)) {
       //freeSDL();
