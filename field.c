@@ -20,6 +20,18 @@ int out(int i, int j) {return (i < 0 || i > 7 || j < 0 || j > 7);}
 
 void freemoves(t_move *head);
 
+int* turns(int t) {
+    int *tu = calloc(sizeof(int), 6);
+    int nb = 1;
+    while (t > 9) {
+        tu[nb] = t%10;
+        t = (int)t/10;
+        nb++;
+    }
+    tu[nb] = t;
+    tu[0] = nb;
+}
+
 t_move *makemove(int sl, int sc, int el, int ec, t_unit *u) {
   t_move *m = malloc(sizeof(struct t_move));
   m->sl = sl;
@@ -482,6 +494,46 @@ int display(struct t_field *f, SDL_Surface *ecran, int cons) {
     }
     else {
   SDL_FillRect(ecran, NULL, SDL_MapRGB(ecran->format, 0, 0, 0));
+
+  SDL_Surface turn;
+  SDL_Surface save;
+  turn = *SDL_LoadBMP("turn.bmp");
+  save = *SDL_LoadBMP("save.bmp");
+  SDL_Rect positiont;
+  positiont.x = 500;
+  positiont.y = 50;
+
+  SDL_Rect positions;
+  positions.x = 560;
+  positions.y = 400;
+
+  SDL_SetColorKey(&turn,SDL_SRCCOLORKEY,SDL_MapRGB(turn.format,255,0,0));
+  SDL_BlitSurface(&turn, NULL, ecran, &positiont);
+  SDL_SetColorKey(&save,SDL_SRCCOLORKEY,SDL_MapRGB(save.format,255,0,0));
+  SDL_BlitSurface(&save, NULL, ecran, &positions);
+
+  int *t = turns(f->turn);
+  SDL_Surface *tu = calloc(sizeof(SDL_Surface), t[0]);
+  SDL_Rect positiontu;
+
+  positiontu.x = 580;
+  positiontu.y = 50;
+  int n = 0;
+  char *c = calloc(sizeof(char), 5);
+  c[1] = '.';
+  c[2] = 'b';
+  c[3] = 'm';
+  c[4] = 'p';
+  while(t[0] > 0) {
+    c[0] = t[t[0]] + '0';
+    tu[n] = *SDL_LoadBMP(c);
+    SDL_SetColorKey(tu+n,SDL_SRCCOLORKEY,SDL_MapRGB(tu[n].format,255,0,0));
+    SDL_BlitSurface(tu+n, NULL, ecran, &positiontu);
+    positiontu.x = positiontu.x + 30;
+    n++;
+    t[0]--;
+  }
+
   SDL_Surface *squares = calloc(sizeof(SDL_Surface), 32);
   for(int i = 0; i < 4; i++) {
     for(int j = 0; j < 8; j++) {
@@ -631,7 +683,6 @@ void freefield(t_field *f) {
 void calculating(t_field *f, state actual, int t, int a_b, int first) {
   if (t < 0)
     return;
-  state fre = actual->next;
   state n = actual->next;
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
@@ -799,6 +850,9 @@ t_field* load(char *s) {
       f->mat[i][j] = match_char(buf[j]);
     }
   }
+  int t;
+  fscanf(file, "TURN %d", &t);
+  f->turn = t;
   return f;
 }
 
@@ -873,6 +927,15 @@ int mainsdl(t_field *f, SDL_Surface *ecran, int multi, int difficulty) {
                             free(c);
                         }
                     }
+                    else if (event.button.x >= 600 && event.button.x <= 675 && event.button.y >= 400 && event.button.y <= 440) {
+                        char *c = calloc(sizeof(char), 100);
+                        printf("Enter file name.\n");
+                        while (!read(STDIN_FILENO, c, 100)) {
+                            printf("invalid name.\n");
+                        }
+                        if (save(f, c))
+                            printf("Game saved.\n");
+                    }
                 }
                 break;
         }
@@ -916,13 +979,16 @@ int main(int argc, char*argv[]) {
     f = load(lvalue);
     if (f != NULL) {
       printf("Loading succesful.\n");
+      SDL_Init(SDL_INIT_VIDEO);
+      ecran = SDL_SetVideoMode(800, 480, 32, SDL_HWSURFACE);
+      SDL_WM_SetCaption("ACI", NULL);
       display(f,ecran, 1);
     }
   }
   else {
     f = new_field();
     update_moves(f);
-    printf("Do you wanna use console ? Y/N\n");
+    printf("Do you wanna use shell as field ? Y/N\n");
     do {
         read(STDIN_FILENO, c, 10);
         if(c[0] != 'Y' && c[0]!= 'N')
@@ -931,7 +997,7 @@ int main(int argc, char*argv[]) {
     if(c[0] == 'N') {
         cons = 0;
         SDL_Init(SDL_INIT_VIDEO);
-        ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
+        ecran = SDL_SetVideoMode(800, 480, 32, SDL_HWSURFACE);
         SDL_WM_SetCaption("ACI", NULL);
     }
     display(f, ecran, cons);
