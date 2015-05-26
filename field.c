@@ -802,6 +802,84 @@ t_field* load(char *s) {
   return f;
 }
 
+//Main with SDL
+int mainsdl(t_field *f, SDL_Surface *ecran, int multi, int difficulty) {
+    int cont = 1;
+    t_unit *choice = NULL;
+    SDL_Event event;
+    while (cont)
+    {
+        SDL_WaitEvent(&event);
+        switch(event.type)
+        {
+            case SDL_QUIT:
+                cont = 0;
+                break;
+            case SDL_MOUSEBUTTONUP:
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    int x = (int)event.button.x / 60;
+                    int y = (int)event.button.y / 60;
+                    if (!out(x, y)) {
+                        if (choice == NULL && f->mat[7-y][x] != NULL) {
+                            choice = f->mat[7-y][x];
+                            t_move *m = choice->moves;
+                            while (m != NULL) {
+                                SDL_Surface *mo = SDL_LoadBMP("selec.bmp");
+                                SDL_Rect position;
+                                position.x = x * 60;
+                                position.y = y * 60;
+                                SDL_SetColorKey(mo,SDL_SRCCOLORKEY,SDL_MapRGB(mo->format,255,0,0));
+                                SDL_BlitSurface(mo, NULL, ecran, &position);
+                            }
+                            SDL_Flip(ecran);
+                        }
+                        else if (choice != NULL) {
+                            char *c = calloc(sizeof(char), 10);
+                            c[0] = 'M';
+                            c[1] = 'O';
+                            c[2] = 'V';
+                            c[3] = 'E';
+                            c[4] = ' ';
+                            c[7] = ' ';
+                            if(choice->moves != NULL) {
+                                c[5] = choice->moves->sc + 'a';
+                                c[6] = choice->moves->sl + '1';
+                            }
+                            c[8] = x + 'a';
+                            c[9] = y + '1';
+                            if(moving(f, c)) {
+                                check_promotion(f, 0);
+                                display(f, ecran, 0);
+                                update_moves(f);
+                                display_check(f,0);
+                                display_check(f,1);
+                                f->team_playing = (f->team_playing + 1) % 2;
+                                if (multi) {
+                                    //FIXME, Multi-stuff
+                                }
+                                else {
+                                    IAplay(f, difficulty);
+                                    f->team_playing = (f->team_playing + 1) % 2;
+                                    check_promotion(f, 1);
+                                    display(f, ecran, 0);
+                                    update_moves(f);
+                                    display_check(f,0);
+                                    display_check(f,1);
+                                }
+                            }
+                            else {
+                                display(f, ecran, 0);
+                            }
+                            free(c);
+                        }
+                    }
+                }
+                break;
+        }
+    }
+    return 0;
+}
+
 /*----------------------------------------------------------------------------*/
 // MAIN PROCESS
 int main(int argc, char*argv[]) {
@@ -814,9 +892,7 @@ int main(int argc, char*argv[]) {
   char *e = malloc(sizeof(char)*2);
   char *c = malloc(sizeof(char)*1024);
   char *path = calloc(sizeof(char), 1024);
-  SDL_Init(SDL_INIT_VIDEO);
-  SDL_Surface *ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
-  SDL_WM_SetCaption("ACI", NULL);
+  SDL_Surface *ecran;
 
   if (argc > 1) {
     char *lvalue = NULL;
@@ -854,6 +930,9 @@ int main(int argc, char*argv[]) {
     } while(c[0] != 'Y' && c[0]!= 'N');
     if(c[0] == 'N') {
         cons = 0;
+        SDL_Init(SDL_INIT_VIDEO);
+        ecran = SDL_SetVideoMode(480, 480, 32, SDL_HWSURFACE);
+        SDL_WM_SetCaption("ACI", NULL);
     }
     display(f, ecran, cons);
     printf("Want to play multi ? Y/N\n");
@@ -890,7 +969,8 @@ int main(int argc, char*argv[]) {
         display_check(f,1);
     }
   }
-
+  if (!cons)
+    return mainsdl(f, ecran, multi, difficulty);
   while(1) {
     while(fgets(c, 1024, stdin) == 0) {
       if (getc(stdin) == 0)
