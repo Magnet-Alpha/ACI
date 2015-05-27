@@ -362,7 +362,7 @@ int castling(t_field *f, int team, int type) {
     printf("Can't do castling.\n");
     return 0;
   }
-}
+  }
 
 // Promotes the pawn u to something else.
 // ai = 0 if a human player owns the pawn
@@ -378,7 +378,7 @@ void promote(t_unit *u, int ai) {
     do {
       read(STDIN_FILENO, c, 10);
       if (c[0] != 'Q' && c[0]!= 'R' && c[0]!= 'B' && c[0]!= 'K')
-        printf("You stupid\n");
+        printf("Choice invalid\n");
     } while (c[0] != 'Q' && c[0]!= 'R' && c[0]!= 'B' && c[0]!= 'K');
     if (c[0] == 'Q') { u->type = 'd'; }
     if (c[0] == 'R') { u->type = 't'; }
@@ -600,8 +600,9 @@ state make_state(t_move *t, int c, int v) {
   s->mov = t;
   s->cost = c;
   if (t!=NULL && t->eat != NULL) {
-    s->cost += match_cost(t->eat->type) * v;
+    s->cost = s->cost + (match_cost(t->eat->type) * v);
   }
+  s->val = 100000 * v;
   s->side = NULL;
   s->next = NULL;
   return s;
@@ -683,8 +684,10 @@ void freefield(t_field *f) {
 }
 
 void calculating(t_field *f, state actual, int t, int a_b, int first) {
-  if (t < 0)
+  if (t < 0) {
+    actual->val = actual->cost;
     return;
+  }
   state n = actual->next;
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
@@ -693,25 +696,27 @@ void calculating(t_field *f, state actual, int t, int a_b, int first) {
 	while (m != NULL) {
 	  n->side = make_state(m, actual->cost, (((t%2)*2)-1)*(-1));
 	  n->side->next = make_state(NULL, 0, 1);
-	  calculating(cam(f, n->side->mov), n->side, t-1, actual->cost, first);
-	  if (((t%2 == 0) && (n->side->cost > actual->cost)) || 
-	      ((t%2 != 0) && (n->side->cost < actual->cost))) {
+	  calculating(cam(f, n->side->mov), n->side, t-1, actual->val, first);
+	  if (((t%2 == 0) && (n->side->val > actual->val)) || 
+	      ((t%2 != 0) && (n->side->val < actual->val))) {
 	    actual->next = n->side;
-	    actual->cost = n->side->cost;
+	    actual->val = n->side->val;
 	  }
-	  if (((t%2 == 0) && (actual->cost > a_b)) || 
-	      ((t%2 != 0) && (actual->cost < a_b))) {
+	  /*if (((t%2 == 0) && (actual->val > a_b)) || 
+	      ((t%2 != 0) && (actual->val < a_b))) {
 	    if (n != actual->next && n != NULL)
 	      free(n);
-	    if (t != first)
-	    freefield(f);
+	    //if (t != first)
+	    //freefield(f);
 	    return;
-	  }
-	  a_b = n->side->cost;
-	  state fr = n;
-	  n = n->side;
-	  if (fr != actual->next)
+	    }*/
+	  if (n != actual->next) {
+	    state fr = n;
+	    n = n->side;
 	    free(fr);
+	  }
+	  else
+	    n = n->side;
 	  m = m->next;
 	}
       }
@@ -719,15 +724,15 @@ void calculating(t_field *f, state actual, int t, int a_b, int first) {
   }
   if (n != actual->next && n != NULL)
     free(n);
-  if (t != first)
-    freefield(f);
+  /*if (t != first)
+    freefield(f);*/
 }
 
 void IAplay(t_field *f, int t) {
   printf("CPU playing...\n");
-  state actual = make_state(NULL, 0, 1);
+  state actual = make_state(NULL, 0, -1);
   actual->next = make_state(NULL, 0, 1);
-  calculating(f, actual, t*2, -10000, t*2);
+  calculating(f, actual, t*2, actual->val, t*2);
   state n = actual->next;
   printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
 	 n->mov->ec+'a', n->mov->el+'1');
@@ -977,7 +982,7 @@ int main(int argc, char*argv[]) {
     do {
       read(STDIN_FILENO, c, 10);
       if(c[0] != 'Y' && c[0]!= 'N')
-	printf("You stupid\n");
+	printf("Choice invalid\n");
     } while(c[0] != 'Y' && c[0]!= 'N');
     if(c[0] == 'N') {
       cons = 0;
@@ -1028,7 +1033,7 @@ int main(int argc, char*argv[]) {
     do {
       read(STDIN_FILENO, c, 10);
       if(c[0] != 'Y' && c[0]!= 'N')
-	printf("You stupid\n");
+	printf("Choice invalid\n");
     } while(c[0] != 'Y' && c[0]!= 'N');
     if(c[0] == 'Y') {
       multi = 1;
@@ -1039,7 +1044,7 @@ int main(int argc, char*argv[]) {
       do {
 	read(STDIN_FILENO, c, 10);
 	if(c[0] != '1' && c[0]!= '2')
-	  printf("You stupid\n");
+	  printf("Choice invalid\n");
       } while(c[0] != '1' && c[0]!= '2');
       difficulty = (int)c[0]-(int)'0';
     }
@@ -1047,7 +1052,7 @@ int main(int argc, char*argv[]) {
     do {
       read(STDIN_FILENO, c, 10);
       if(c[0] != 'B' && c[0]!= 'W')
-	printf("You stupid\n");
+	printf("Choice invalid\n");
     } while(c[0] != 'B' && c[0]!= 'W');
     if(c[0] == 'B' && !multi) {
       IAplay(f, difficulty);
