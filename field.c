@@ -21,15 +21,16 @@ int out(int i, int j) {return (i < 0 || i > 7 || j < 0 || j > 7);}
 void freemoves(t_move *head);
 
 int* turns(int t) {
-    int *tu = calloc(sizeof(int), 6);
-    int nb = 1;
-    while (t > 9) {
-        tu[nb] = t%10;
-        t = (int)t/10;
-        nb++;
-    }
-    tu[nb] = t;
-    tu[0] = nb;
+  int *tu = calloc(sizeof(int), 6);
+  int nb = 1;
+  while (t > 9) {
+    tu[nb] = t%10;
+    t = (int)t/10;
+    nb++;
+  }
+  tu[nb] = t;
+  tu[0] = nb;
+  return tu;
 }
 
 t_move *makemove(int sl, int sc, int el, int ec, t_unit *u) {
@@ -469,115 +470,115 @@ struct t_field* move(struct t_field *f, int sx, int sy, int dx, int dy) {
 
 // Displays the field (console mode)
 int display(struct t_field *f, SDL_Surface *ecran, int cons) {
-    if (cons) {
-  printf("#+ABCDEFGH#\n");
-  printf("#+--------|\n");
-  char s[13];
-  for (int i = 7; i >= 0; --i) {
-    s[0] = 48+i+1;
-    s[1] = '|';
-    for (int j = 2; j <= 9; j++) {
-      if (f->mat[i][j-2] == NULL)
-	s[j] = ' ';
-      else {
-	//f->mat[i][j-2]->team ? color("36") : color("31");
-	s[j] = f->mat[i][j-2]->type - 32;
-	//color("37");
+  if (cons) {
+    printf("#+ABCDEFGH#\n");
+    printf("#+--------|\n");
+    char s[13];
+    for (int i = 7; i >= 0; --i) {
+      s[0] = 48+i+1;
+      s[1] = '|';
+      for (int j = 2; j <= 9; j++) {
+	if (f->mat[i][j-2] == NULL)
+	  s[j] = ' ';
+	else {
+	  //f->mat[i][j-2]->team ? color("36") : color("31");
+	  s[j] = f->mat[i][j-2]->type - 32;
+	  //color("37");
+	}
       }
+      s[10] = '#';
+      s[11] = '\n';
+      s[12] = '\0';
+      printf("%s", s);
     }
-    s[10] = '#';
-    s[11] = '\n';
-    s[12] = '\0';
-    printf("%s", s);
+    printf("#+--------|\n");
   }
-  printf("#+--------|\n");
+  else {
+    SDL_FillRect(ecran, NULL, SDL_MapRGB(ecran->format, 0, 0, 0));
+
+    SDL_Surface turn;
+    SDL_Surface save;
+    turn = *SDL_LoadBMP("turn.bmp");
+    save = *SDL_LoadBMP("save.bmp");
+    SDL_Rect positiont;
+    positiont.x = 500;
+    positiont.y = 50;
+
+    SDL_Rect positions;
+    positions.x = 560;
+    positions.y = 400;
+
+    SDL_SetColorKey(&turn,SDL_SRCCOLORKEY,SDL_MapRGB(turn.format,255,0,0));
+    SDL_BlitSurface(&turn, NULL, ecran, &positiont);
+    SDL_SetColorKey(&save,SDL_SRCCOLORKEY,SDL_MapRGB(save.format,255,0,0));
+    SDL_BlitSurface(&save, NULL, ecran, &positions);
+
+    int *t = turns(f->turn);
+    SDL_Surface *tu = calloc(sizeof(SDL_Surface), t[0]);
+    SDL_Rect positiontu;
+
+    positiontu.x = 580;
+    positiontu.y = 50;
+    int n = 0;
+    char *c = calloc(sizeof(char), 5);
+    c[1] = '.';
+    c[2] = 'b';
+    c[3] = 'm';
+    c[4] = 'p';
+    while(t[0] > 0) {
+      c[0] = t[t[0]] + '0';
+      tu[n] = *SDL_LoadBMP(c);
+      SDL_SetColorKey(tu+n,SDL_SRCCOLORKEY,SDL_MapRGB(tu[n].format,255,0,0));
+      SDL_BlitSurface(tu+n, NULL, ecran, &positiontu);
+      positiontu.x = positiontu.x + 20;
+      n++;
+      t[0]--;
     }
-    else {
-  SDL_FillRect(ecran, NULL, SDL_MapRGB(ecran->format, 0, 0, 0));
 
-  SDL_Surface turn;
-  SDL_Surface save;
-  turn = *SDL_LoadBMP("turn.bmp");
-  save = *SDL_LoadBMP("save.bmp");
-  SDL_Rect positiont;
-  positiont.x = 500;
-  positiont.y = 50;
-
-  SDL_Rect positions;
-  positions.x = 560;
-  positions.y = 400;
-
-  SDL_SetColorKey(&turn,SDL_SRCCOLORKEY,SDL_MapRGB(turn.format,255,0,0));
-  SDL_BlitSurface(&turn, NULL, ecran, &positiont);
-  SDL_SetColorKey(&save,SDL_SRCCOLORKEY,SDL_MapRGB(save.format,255,0,0));
-  SDL_BlitSurface(&save, NULL, ecran, &positions);
-
-  int *t = turns(f->turn);
-  SDL_Surface *tu = calloc(sizeof(SDL_Surface), t[0]);
-  SDL_Rect positiontu;
-
-  positiontu.x = 580;
-  positiontu.y = 50;
-  int n = 0;
-  char *c = calloc(sizeof(char), 5);
-  c[1] = '.';
-  c[2] = 'b';
-  c[3] = 'm';
-  c[4] = 'p';
-  while(t[0] > 0) {
-    c[0] = t[t[0]] + '0';
-    tu[n] = *SDL_LoadBMP(c);
-    SDL_SetColorKey(tu+n,SDL_SRCCOLORKEY,SDL_MapRGB(tu[n].format,255,0,0));
-    SDL_BlitSurface(tu+n, NULL, ecran, &positiontu);
-    positiontu.x = positiontu.x + 30;
-    n++;
-    t[0]--;
-  }
-
-  SDL_Surface *squares = calloc(sizeof(SDL_Surface), 32);
-  for(int i = 0; i < 4; i++) {
-    for(int j = 0; j < 8; j++) {
-      squares[i*8+j] = *SDL_CreateRGBSurface(SDL_HWSURFACE,60,60,32,0,0,0,0);
-      SDL_FillRect(squares+(i*8+j), NULL,SDL_MapRGB(ecran->format,255,255,255));
-      SDL_Rect position;
-
-      position.x = (i*2 + j%2)*60;
-      position.y = j*60;
-
-      SDL_BlitSurface(squares+(i*8+j), NULL, ecran, &position);
-    }
-  }
-
-  int k = 0;
-  char *buf = calloc(sizeof(char), 6);
-  buf[2] = '.';
-  buf[3] = 'b';
-  buf[4] = 'm';
-  buf[5] = 'p';
-
-  SDL_Surface *pieces = calloc(sizeof(SDL_Surface), 32);
-  for(int i = 0; i < 8; i++) {
-    for(int j = 0; j < 8; j++) {
-      if (f->mat[i][j] != NULL) {
-	buf[0] = f->mat[i][j]->type;
-	if(f->mat[i][j]->team)
-	  buf[1] = 'b';
-	else
-	  buf[1] = 'w';
-	pieces[k] = *SDL_LoadBMP(buf);
+    SDL_Surface *squares = calloc(sizeof(SDL_Surface), 32);
+    for(int i = 0; i < 4; i++) {
+      for(int j = 0; j < 8; j++) {
+	squares[i*8+j] = *SDL_CreateRGBSurface(SDL_HWSURFACE,60,60,32,0,0,0,0);
+	SDL_FillRect(squares+(i*8+j), NULL,SDL_MapRGB(ecran->format,255,255,255));
 	SDL_Rect position;
 
-	position.x = j*60;
-	position.y = (7-i)*60;
+	position.x = (i*2 + j%2)*60;
+	position.y = j*60;
 
-	SDL_SetColorKey(pieces+k,SDL_SRCCOLORKEY,SDL_MapRGB(pieces[k].format,255,0,0));
-	SDL_BlitSurface(pieces+k, NULL, ecran, &position);
-	k++;
+	SDL_BlitSurface(squares+(i*8+j), NULL, ecran, &position);
       }
     }
-  }
-  SDL_Flip(ecran);
+
+    int k = 0;
+    char *buf = calloc(sizeof(char), 6);
+    buf[2] = '.';
+    buf[3] = 'b';
+    buf[4] = 'm';
+    buf[5] = 'p';
+
+    SDL_Surface *pieces = calloc(sizeof(SDL_Surface), 32);
+    for(int i = 0; i < 8; i++) {
+      for(int j = 0; j < 8; j++) {
+	if (f->mat[i][j] != NULL) {
+	  buf[0] = f->mat[i][j]->type;
+	  if(f->mat[i][j]->team)
+	    buf[1] = 'b';
+	  else
+	    buf[1] = 'w';
+	  pieces[k] = *SDL_LoadBMP(buf);
+	  SDL_Rect position;
+
+	  position.x = j*60;
+	  position.y = (7-i)*60;
+
+	  SDL_SetColorKey(pieces+k,SDL_SRCCOLORKEY,SDL_MapRGB(pieces[k].format,255,0,0));
+	  SDL_BlitSurface(pieces+k, NULL, ecran, &position);
+	  k++;
+	}
+      }
     }
+    SDL_Flip(ecran);
+  }
 
   return 0;
 }
@@ -586,9 +587,9 @@ int display(struct t_field *f, SDL_Surface *ecran, int cons) {
 int match_cost(char c) {
   switch (c) {
   case 'r': return 1000;
-  case 'd': return 10;
+  case 'd': return 9;
   case 'f': return 3;
-  case 'c': return 2;
+  case 'c': return 3;
   case 't': return 5;
   default: return 1;
   }
@@ -599,7 +600,7 @@ state make_state(t_move *t, int c, int v) {
   s->mov = t;
   s->cost = c;
   if (t!=NULL && t->eat != NULL) {
-      s->cost += match_cost(t->eat->type) * v;
+    s->cost += match_cost(t->eat->type) * v;
   }
   s->side = NULL;
   s->next = NULL;
@@ -635,6 +636,7 @@ t_field *cam(t_field *f, t_move *m) {
     for(int j = 0; j < 8; j++) {
       if(f->mat[i][j] != NULL) {
 	co->mat[i][j] = new_unit(f->mat[i][j]->type, f->mat[i][j]->team);
+	co->mat[i][j]->moved = f->mat[i][j]->moved;
       }
     }
   }
@@ -692,22 +694,24 @@ void calculating(t_field *f, state actual, int t, int a_b, int first) {
 	  n->side = make_state(m, actual->cost, (((t%2)*2)-1)*(-1));
 	  n->side->next = make_state(NULL, 0, 1);
 	  calculating(cam(f, n->side->mov), n->side, t-1, actual->cost, first);
-	  if (((t%2 == 0) && (n->side->cost > actual->cost)) || ((t%2 != 0) && (n->side->cost < actual->cost))) {
-        actual->next = n->side;
-        actual->cost = n->side->cost;
+	  if (((t%2 == 0) && (n->side->cost > actual->cost)) || 
+	      ((t%2 != 0) && (n->side->cost < actual->cost))) {
+	    actual->next = n->side;
+	    actual->cost = n->side->cost;
 	  }
-	  if (((t%2 == 0) && (actual->cost > a_b)) || ((t%2 != 0) && (actual->cost < a_b))) {
-        if (n != actual->next && n != NULL)
-            free(n);
-        if (t != first)
-            freefield(f);
-        return;
+	  if (((t%2 == 0) && (actual->cost > a_b)) || 
+	      ((t%2 != 0) && (actual->cost < a_b))) {
+	    if (n != actual->next && n != NULL)
+	      free(n);
+	    if (t != first)
+	    freefield(f);
+	    return;
 	  }
-      a_b = n->side->cost;
-      state fr = n;
+	  a_b = n->side->cost;
+	  state fr = n;
 	  n = n->side;
 	  if (fr != actual->next)
-        free(fr);
+	    free(fr);
 	  m = m->next;
 	}
       }
@@ -723,14 +727,14 @@ void IAplay(t_field *f, int t) {
   printf("CPU playing...\n");
   state actual = make_state(NULL, 0, 1);
   actual->next = make_state(NULL, 0, 1);
-  calculating(f, actual, t*2, -1000000, t*2);
+  calculating(f, actual, t*2, -10000, t*2);
   state n = actual->next;
   printf("CPU : MOVE %c%c %c%c\n", n->mov->sc+'a', n->mov->sl+'1',
 	 n->mov->ec+'a', n->mov->el+'1');
   execmove(f, f->mat[n->mov->sl][n->mov->sc], n->mov);
   /*free(n->mov);
-  free(n);
-  free(actual);*/
+    free(n);
+    free(actual);*/
 }
 
 t_unit *take(t_field *f, char *s) {
@@ -819,20 +823,20 @@ t_unit *match_char(char c) {
 /*------------------------------------------------------------------------*/
 
 int save(t_field *f, char *s) {
-    FILE *file = fopen(s, "w+");
-    for (int i = 7; i >= 0; i--) {
-        char *buf = calloc(sizeof(char), 8);
-        for (int j = 0; j < 8; j++) {
-            if (f->mat[i][j] != NULL)
-                buf[j] = f->mat[i][j]->type + 32 * (char)f->mat[i][j]->team;
-            else
-                buf[j] = '#';
-        }
-        fprintf(file, "%s/n", buf);
+  FILE *file = fopen(s, "w+");
+  for (int i = 7; i >= 0; i--) {
+    char *buf = calloc(sizeof(char), 8);
+    for (int j = 0; j < 8; j++) {
+      if (f->mat[i][j] != NULL)
+	buf[j] = f->mat[i][j]->type - 32 * (char)f->mat[i][j]->team;
+      else
+	buf[j] = '#';
     }
-    fprintf(file, "TURN %d", f->turn);
-    fclose(file);
-    return 1;
+    fprintf(file, "%s\n", buf);
+  }
+  fprintf(file, "TURN %d", f->turn);
+  fclose(file);
+  return 1;
 }
 
 t_field* load(char *s) {
@@ -853,94 +857,106 @@ t_field* load(char *s) {
   int t;
   fscanf(file, "TURN %d", &t);
   f->turn = t;
+  update_moves(f);
   return f;
 }
 
 //Main with SDL
 int mainsdl(t_field *f, SDL_Surface *ecran, int multi, int difficulty) {
-    int cont = 1;
-    t_unit *choice = NULL;
-    SDL_Event event;
-    while (cont)
+  int cont = 1;
+  t_unit *choice = NULL;
+  SDL_Event event;
+  while (cont)
     {
-        SDL_WaitEvent(&event);
-        switch(event.type)
+      SDL_WaitEvent(&event);
+      switch(event.type)
         {
-            case SDL_QUIT:
-                cont = 0;
-                break;
-            case SDL_MOUSEBUTTONUP:
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    int x = (int)event.button.x / 60;
-                    int y = (int)event.button.y / 60;
-                    if (!out(x, y)) {
-                        if (choice == NULL && f->mat[7-y][x] != NULL) {
-                            choice = f->mat[7-y][x];
-                            t_move *m = choice->moves;
-                            while (m != NULL) {
-                                SDL_Surface *mo = SDL_LoadBMP("selec.bmp");
-                                SDL_Rect position;
-                                position.x = x * 60;
-                                position.y = y * 60;
-                                SDL_SetColorKey(mo,SDL_SRCCOLORKEY,SDL_MapRGB(mo->format,255,0,0));
-                                SDL_BlitSurface(mo, NULL, ecran, &position);
-                            }
-                            SDL_Flip(ecran);
-                        }
-                        else if (choice != NULL) {
-                            char *c = calloc(sizeof(char), 10);
-                            c[0] = 'M';
-                            c[1] = 'O';
-                            c[2] = 'V';
-                            c[3] = 'E';
-                            c[4] = ' ';
-                            c[7] = ' ';
-                            if(choice->moves != NULL) {
-                                c[5] = choice->moves->sc + 'a';
-                                c[6] = choice->moves->sl + '1';
-                            }
-                            c[8] = x + 'a';
-                            c[9] = y + '1';
-                            if(moving(f, c)) {
-                                check_promotion(f, 0);
-                                display(f, ecran, 0);
-                                update_moves(f);
-                                display_check(f,0);
-                                display_check(f,1);
-                                f->team_playing = (f->team_playing + 1) % 2;
-                                if (multi) {
-                                    //FIXME, Multi-stuff
-                                }
-                                else {
-                                    IAplay(f, difficulty);
-                                    f->team_playing = (f->team_playing + 1) % 2;
-                                    check_promotion(f, 1);
-                                    display(f, ecran, 0);
-                                    update_moves(f);
-                                    display_check(f,0);
-                                    display_check(f,1);
-                                }
-                            }
-                            else {
-                                display(f, ecran, 0);
-                            }
-                            free(c);
-                        }
-                    }
-                    else if (event.button.x >= 600 && event.button.x <= 675 && event.button.y >= 400 && event.button.y <= 440) {
-                        char *c = calloc(sizeof(char), 100);
-                        printf("Enter file name.\n");
-                        while (!read(STDIN_FILENO, c, 100)) {
-                            printf("invalid name.\n");
-                        }
-                        if (save(f, c))
-                            printf("Game saved.\n");
-                    }
-                }
-                break;
+	case SDL_QUIT:
+	  cont = 0;
+	  break;
+	case SDL_MOUSEBUTTONUP:
+	  if (event.button.button == SDL_BUTTON_LEFT) {
+	    int x = (int)event.button.x / 60;
+	    int y = (int)event.button.y / 60;
+	    if (!out(x, y)) {
+	      if (choice == NULL && f->mat[7-y][x] != NULL && f->mat[7-y][x]->team == f->team_playing) {
+		choice = f->mat[7-y][x];
+		t_move *m = choice->moves;
+		SDL_Surface *mo = NULL;
+		int nb = 1;
+		while (m != NULL) {
+		  mo = realloc(mo, sizeof(SDL_Surface) * nb);
+		  mo[nb-1] = *SDL_LoadBMP("selec.bmp");
+		  SDL_Rect position;
+		  position.x = m->ec * 60;
+		  position.y = (7-m->el) * 60;
+		  SDL_SetColorKey(mo+(nb-1),SDL_SRCCOLORKEY,
+				  SDL_MapRGB(mo[nb-1].format,255,0,0));
+		  SDL_BlitSurface(mo+(nb-1), NULL, ecran, &position);
+		  m = m->next;
+		  nb++;
+		}
+		SDL_Flip(ecran);
+	      }
+	      else if (choice != NULL) {
+		char *c = calloc(sizeof(char), 10);
+		c[0] = 'M';
+		c[1] = 'O';
+		c[2] = 'V';
+		c[3] = 'E';
+		c[4] = ' ';
+		c[7] = ' ';
+		if(choice->moves != NULL) {
+		  c[5] = choice->moves->sc + 'a';
+		  c[6] = choice->moves->sl + '1';
+		}
+		c[8] = x + 'a';
+		c[9] = 7-y + '1';
+		if(moving(f, c)) {
+		  f->turn++;
+		  choice = NULL;
+		  check_promotion(f, 0);
+		  display(f, ecran, 0);
+		  update_moves(f);
+		  display_check(f,0);
+		  display_check(f,1);
+		  f->team_playing = (f->team_playing + 1) % 2;
+		  if (multi) {
+		    //FIXME, Multi-stuff
+		  }
+		  else {
+		    IAplay(f, difficulty);
+		    f->turn++;
+		    f->team_playing = (f->team_playing + 1) % 2;
+		    check_promotion(f, 1);
+		    display(f, ecran, 0);
+		    update_moves(f);
+		    display_check(f,0);
+		    display_check(f,1);
+		  }
+		}
+		else {
+		  display(f, ecran, 0);
+		  choice = NULL;
+		}
+		free(c);
+	      }
+	    }
+	    else if (event.button.x >= 550 && event.button.x <= 625 
+		     && event.button.y >= 400 && event.button.y <= 440) {
+	      char *c = calloc(sizeof(char), 50);
+	      printf("Enter file name.\n");
+	      while (!read(STDIN_FILENO, c, 50)) {
+		printf("invalid name.\n");
+	      }
+	      if (save(f, c))
+		printf("Game saved.\n");
+	    }
+	  }
+	  break;
         }
     }
-    return 0;
+  return 0;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -957,82 +973,89 @@ int main(int argc, char*argv[]) {
   char *path = calloc(sizeof(char), 1024);
   SDL_Surface *ecran;
 
+  printf("Do you wanna use shell as field ? Y/N\n");
+    do {
+      read(STDIN_FILENO, c, 10);
+      if(c[0] != 'Y' && c[0]!= 'N')
+	printf("You stupid\n");
+    } while(c[0] != 'Y' && c[0]!= 'N');
+    if(c[0] == 'N') {
+      cons = 0;
+      SDL_Init(SDL_INIT_VIDEO);
+      ecran = SDL_SetVideoMode(700, 480, 32, SDL_HWSURFACE);
+      SDL_WM_SetCaption("ACI", NULL);
+    }
+
   if (argc > 1) {
     char *lvalue = NULL;
     int l;
 
     while ((l = getopt (argc, argv, "bml:")) != -1)
-    switch (l)
-      {
-      case 'b':
-        white = 0;
-        break;
-      case 'm':
-        multi = 1;
-        break;
-      case 'l':
-        lvalue = optarg;
-        break;
-      default:
-        abort();
-      }
+      switch (l)
+	{
+	case 'b':
+	  white = 0;
+	  break;
+	case 'm':
+	  multi = 1;
+	  break;
+	case 'l':
+	  lvalue = optarg;
+	  break;
+	default:
+	  abort();
+	}
     f = load(lvalue);
     if (f != NULL) {
       printf("Loading succesful.\n");
-      SDL_Init(SDL_INIT_VIDEO);
-      ecran = SDL_SetVideoMode(800, 480, 32, SDL_HWSURFACE);
-      SDL_WM_SetCaption("ACI", NULL);
-      display(f,ecran, 1);
+      display(f,ecran, cons);
+    }
+    if(f->turn%2 != white && !multi) {
+      IAplay(f, difficulty);
+      f->team_playing = (f->team_playing + 1) % 2;
+      display(f, ecran, cons);
+      update_moves(f);
+      display_check(f,0);
+      display_check(f,1);
     }
   }
   else {
     f = new_field();
+    f->turn++;
     update_moves(f);
-    printf("Do you wanna use shell as field ? Y/N\n");
-    do {
-        read(STDIN_FILENO, c, 10);
-        if(c[0] != 'Y' && c[0]!= 'N')
-            printf("You stupid\n");
-    } while(c[0] != 'Y' && c[0]!= 'N');
-    if(c[0] == 'N') {
-        cons = 0;
-        SDL_Init(SDL_INIT_VIDEO);
-        ecran = SDL_SetVideoMode(800, 480, 32, SDL_HWSURFACE);
-        SDL_WM_SetCaption("ACI", NULL);
-    }
     display(f, ecran, cons);
     printf("Want to play multi ? Y/N\n");
     do {
-        read(STDIN_FILENO, c, 10);
-        if(c[0] != 'Y' && c[0]!= 'N')
-            printf("You stupid\n");
+      read(STDIN_FILENO, c, 10);
+      if(c[0] != 'Y' && c[0]!= 'N')
+	printf("You stupid\n");
     } while(c[0] != 'Y' && c[0]!= 'N');
     if(c[0] == 'Y') {
-        multi = 1;
-        //FIXME, Multi-stuff preparation.
+      multi = 1;
+      //FIXME, Multi-stuff preparation.
     }
     else {
-        printf("Which difficulty ? 1 easy - 2 medium - 3 NOTIMPLEMENTED\n");
-        do {
-            read(STDIN_FILENO, c, 10);
-            if(c[0] != '1' && c[0]!= '2')
-                printf("You stupid\n");
-        } while(c[0] != '1' && c[0]!= '2');
-        difficulty = (int)c[0]-(int)'0';
+      printf("Which difficulty ? 1 easy - 2 medium - 3 NOTIMPLEMENTED\n");
+      do {
+	read(STDIN_FILENO, c, 10);
+	if(c[0] != '1' && c[0]!= '2')
+	  printf("You stupid\n");
+      } while(c[0] != '1' && c[0]!= '2');
+      difficulty = (int)c[0]-(int)'0';
     }
     printf("Which team player 1 ? W for White, B for Black\n"); //Faire attention au multi
     do {
-        read(STDIN_FILENO, c, 10);
-        if(c[0] != 'B' && c[0]!= 'W')
-            printf("You stupid\n");
+      read(STDIN_FILENO, c, 10);
+      if(c[0] != 'B' && c[0]!= 'W')
+	printf("You stupid\n");
     } while(c[0] != 'B' && c[0]!= 'W');
     if(c[0] == 'B' && !multi) {
-        IAplay(f, difficulty);
-        f->team_playing = (f->team_playing + 1) % 2;
-        display(f, ecran, cons);
-        update_moves(f);
-        display_check(f,0);
-        display_check(f,1);
+      IAplay(f, difficulty);
+      f->team_playing = (f->team_playing + 1) % 2;
+      display(f, ecran, cons);
+      update_moves(f);
+      display_check(f,0);
+      display_check(f,1);
     }
   }
   if (!cons)
@@ -1065,7 +1088,7 @@ int main(int argc, char*argv[]) {
       }
     }
     else if (sscanf(c, "SAVE %s", path)) {
-      if (save(f, path));
+      if (save(f, path))
         printf("Game saved\n");
     }
     else if (!strncmp(c, "STOP", 4)) {
