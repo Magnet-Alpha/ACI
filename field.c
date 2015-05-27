@@ -697,12 +697,12 @@ void calculating(t_field *f, state actual, int t, int a_b, int first) {
 	  n->side = make_state(m, actual->cost, (((t%2)*2)-1)*(-1));
 	  n->side->next = make_state(NULL, 0, 1);
 	  calculating(cam(f, n->side->mov), n->side, t-1, actual->val, first);
-	  if (((t%2 == 0) && (n->side->val > actual->val)) || 
+	  if (((t%2 == 0) && (n->side->val > actual->val)) ||
 	      ((t%2 != 0) && (n->side->val < actual->val))) {
 	    actual->next = n->side;
 	    actual->val = n->side->val;
 	  }
-	  /*if (((t%2 == 0) && (actual->val > a_b)) || 
+	  /*if (((t%2 == 0) && (actual->val > a_b)) ||
 	      ((t%2 != 0) && (actual->val < a_b))) {
 	    if (n != actual->next && n != NULL)
 	      free(n);
@@ -825,6 +825,87 @@ t_unit *match_char(char c) {
   }
 }
 
+// Create and return a copy of the unit u
+// (without copying moves, see copy_field(f) below)
+t_unit *copy_unit(t_unit *u) {
+  t_unit *v = malloc(sizeof(t_unit));
+  v->type = u->type;
+  v->team = u->team;
+  v->moved = u->moved;
+  v->status = u->status;
+  v->moves = NULL;
+  return v;
+}
+
+// Create and return a copy of the field f
+t_field *copy_field(t_field *f) {
+  t_field *g = malloc(sizeof(t_field));
+  g->turn = f->turn;
+  g->team_playing = f->team_playing;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+        g->mat[i][j] = copy_unit(f->mat[i][j]);
+    }
+  }
+  update_moves(g);
+  return g;
+}
+
+// Add a move to a list of moves
+// (used in the function below)
+t_move *add_move(t_move *m, t_move *list) {
+  if (!list)
+    return m;
+  t_move *p = list;
+  while (p->next)
+    p = p->next;
+  p->next = m;
+  return list;
+}
+
+// Create and return the list of all moves permitted by a team
+t_move *copy_moves(t_field *g, int team) {
+  t_move *list = NULL;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (g->mat[i][j] && g->mat[i][j]->team == team)
+        list = add_move(g->mat[i][j]->moves, list);
+    }
+  }
+  return list;
+}
+
+// Verify if one team is in checkmate (and then loses)
+int checkmate(t_field *f, int team) {
+  int cm = 1;                           // 1 = Checkmate! / 0 = Safe.
+  t_field *g = copy_field(f);           // Copying the field
+  t_move *list = copy_moves(g, team);   // Building all moves permitted
+  t_move *m = list;
+
+  while (cm && m) {                         // For each move permitted
+    execmove(g, g->mat[m->sl][m->sc], m);     // Executing the move
+    cm = is_in_check(g, team);                // If the King is safe, breaks the loop
+    freefield(g);
+    g = copy_field(f);                        // Back to the previous state
+    m = m->next;                              // Next move
+  }
+
+  freefield(g);
+  freemoves(list);
+  return cm;
+}
+
+// Launch checkmate verification (+ display)
+int is_checkmate(t_field *f, int team) {
+  int cm = checkmate(f, team);
+  if (cm) {
+    char *s = team ? "White" : "Black";
+    printf("Checkmate!\n%s team wins.", s) ;
+  }
+  return cm;
+}
+
+
 /*------------------------------------------------------------------------*/
 
 int save(t_field *f, char *s) {
@@ -866,6 +947,8 @@ t_field* load(char *s) {
   return f;
 }
 
+
+/*----------------------------------------------------------------------------*/
 //Main with SDL
 int mainsdl(t_field *f, SDL_Surface *ecran, int multi, int difficulty) {
   int cont = 1;
@@ -947,7 +1030,7 @@ int mainsdl(t_field *f, SDL_Surface *ecran, int multi, int difficulty) {
 		free(c);
 	      }
 	    }
-	    else if (event.button.x >= 550 && event.button.x <= 625 
+	    else if (event.button.x >= 550 && event.button.x <= 625
 		     && event.button.y >= 400 && event.button.y <= 440) {
 	      char *c = calloc(sizeof(char), 50);
 	      printf("Enter file name.\n");
@@ -969,6 +1052,7 @@ int mainsdl(t_field *f, SDL_Surface *ecran, int multi, int difficulty) {
 int main(int argc, char*argv[]) {
   struct t_field *f;
   int white = 1;
+  int p1team;
   int multi = 0;
   int difficulty = 1;
   int cons = 1;
@@ -1052,8 +1136,9 @@ int main(int argc, char*argv[]) {
     do {
       read(STDIN_FILENO, c, 10);
       if(c[0] != 'B' && c[0]!= 'W')
-	printf("Choice invalid\n");
+        printf("Choice invalid\n");
     } while(c[0] != 'B' && c[0]!= 'W');
+    p1team = 0;
     if(c[0] == 'B' && !multi) {
       IAplay(f, difficulty);
       f->team_playing = (f->team_playing + 1) % 2;
@@ -1061,6 +1146,7 @@ int main(int argc, char*argv[]) {
       update_moves(f);
       display_check(f,0);
       display_check(f,1);
+      p1team = 1;
     }
   }
   if (!cons)
@@ -1068,27 +1154,31 @@ int main(int argc, char*argv[]) {
   while(1) {
     while(fgets(c, 1024, stdin) == 0) {
       if (getc(stdin) == 0)
-	return 0;
+        return 0;
     }
     if (sscanf(c, "MOVE %s %s", d, e)) {
       if(moving(f, c)) {
         check_promotion(f, 0);
         display(f, ecran, cons);
         update_moves(f);
+        if (is_checkmate(f, p1team))
+          break;
         display_check(f,0);
         display_check(f,1);
         f->team_playing = (f->team_playing + 1) % 2;
         if (multi) {
-	  //FIXME, Multi-stuff
+          //FIXME, Multi-stuff
         }
         else {
-	  IAplay(f, difficulty);
-	  f->team_playing = (f->team_playing + 1) % 2;
-	  check_promotion(f, 1);
-	  display(f, ecran, cons);
-	  update_moves(f);
-	  display_check(f,0);
-	  display_check(f,1);
+          IAplay(f, difficulty);
+          f->team_playing = (f->team_playing + 1) % 2;
+          check_promotion(f, 1);
+          display(f, ecran, cons);
+          update_moves(f);
+          if (is_checkmate(f, p1team))
+            break;
+          display_check(f,0);
+          display_check(f,1);
         }
       }
     }
@@ -1104,5 +1194,6 @@ int main(int argc, char*argv[]) {
     else
       printf("Please enter a move with : MOVE start end\n");
   }
+  // <= END OF GAME
   return 0;
 }
